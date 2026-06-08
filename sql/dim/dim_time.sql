@@ -52,8 +52,8 @@ TBLPROPERTIES (
 --     NULL                                                                         AS holiday_name,
 --     h                                                                           AS hour,
 --     CASE
---         WHEN h BETWEEN 7 AND 9   THEN 'MORNING_PEEK'
---         WHEN h BETWEEN 17 AND 19 THEN 'EVE_PEEK'
+--         WHEN h BETWEEN 7 AND 9   THEN 'MORNING_PEAK'
+--         WHEN h BETWEEN 17 AND 19 THEN 'EVENING_PEAK'
 --         WHEN h BETWEEN 6 AND 22  THEN 'DAY_NORMAL'
 --         ELSE 'NIGHT_NORMAL'
 --     END                                                                          AS peak_period,

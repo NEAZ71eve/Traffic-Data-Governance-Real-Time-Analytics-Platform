@@ -1,0 +1,52 @@
+{
+  "description": "Maxwell CDC输出到Kafka的数据格式说明",
+  "output_format": {
+    "type": "JSON",
+    "fields": {
+      "database": "数据库名: traffic_business",
+      "table": "表名: t_device/t_road/t_area/t_alarm 等",
+      "type": "操作类型: insert/update/delete",
+      "ts": "事件时间戳(秒)",
+      "xid": "事务ID",
+      "xoffset": "事务偏移量",
+      "data": "变更后的数据(JSON对象)",
+      "old": "变更前的数据(仅update时有)"
+    }
+  },
+  "example_insert": {
+    "database": "traffic_business",
+    "table": "t_device",
+    "type": "insert",
+    "ts": 1715011200,
+    "data": {
+      "device_id": "D021",
+      "device_name": "新安装摄像头",
+      "device_type": "CAMERA",
+      "road_id": "R001",
+      "area_id": "A001",
+      "status": "RUNNING"
+    }
+  },
+  "example_update": {
+    "database": "traffic_business",
+    "table": "t_road",
+    "type": "update",
+    "ts": 1715011200,
+    "data": {
+      "road_id": "R001",
+      "road_name": "长安街",
+      "lane_count": 10,
+      "speed_limit": 60
+    },
+    "old": {
+      "lane_count": 8,
+      "speed_limit": 70
+    }
+  },
+  "consumer_usage": {
+    "description": "下游消费端(如DIM拉链表更新任务)从Kafka topic 'maxwell_traffic_cdc'消费",
+    "kafka_topic": "maxwell_traffic_cdc",
+    "consumer_group": "dim_zip_update_group",
+    "processing": "根据type字段：insert→新增当前记录, update→闭合旧记录+新增当前记录, delete→闭合旧记录"
+  }
+}

@@ -11,7 +11,7 @@ CREATE EXTERNAL TABLE IF NOT EXISTS traffic_db.ods_traffic_status_di (
     traffic_flow    INT         COMMENT '车流量(辆)',
     jam_level       INT         COMMENT '拥堵等级(1-畅通/2-基本畅通/3-轻度拥堵/4-中度拥堵/5-严重拥堵)',
     congestion_rate DECIMAL(5,2) COMMENT '拥堵率(%)',
-    peak_flag       STRING      COMMENT '高峰标识(PEEK_HOUR/NORMAL/OFF_PEEK)',
+    peak_flag       STRING      COMMENT '高峰标识(PEAK_HOUR/NORMAL/OFF_PEAK)',
     sample_time     STRING      COMMENT '采样时间(yyyy-MM-dd HH:mm:ss)'
 )
 COMMENT '路况监测ODS原始记录表'

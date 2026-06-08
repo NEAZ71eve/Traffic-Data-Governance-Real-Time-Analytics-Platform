@@ -1,8 +1,9 @@
 -- ============================================
 -- DWD层：路况监测明细表（建表DDL + ETL）
 -- 数据来源：ODS层 ods_traffic_status_di
--- 清洗逻辑：拥堵等级校验(1~5)、拥堵率校验(0~100)、数据去重
+-- 清洗逻辑：拥堵等级校验(1~5)、拥堵率校验(0~100)、数据去重、异常流量过滤
 -- 派生字段：jam_desc 拥堵描述
+-- 异常流量过滤规则：单道路单采样点 traffic_flow > 5000 视为传感器异常，剔除
 -- ============================================
 
 CREATE TABLE IF NOT EXISTS traffic_db.dwd_traffic_status_di (
@@ -41,7 +42,7 @@ SELECT
     CAST(jam_level AS INT)                                                      AS jam_level,
     CAST(congestion_rate AS DECIMAL(5,2))                                       AS congestion_rate,
     CASE
-        WHEN peak_flag IN ('PEEK_HOUR', 'NORMAL', 'OFF_PEEK') THEN peak_flag
+        WHEN peak_flag IN ('PEAK_HOUR', 'NORMAL', 'OFF_PEAK') THEN peak_flag
         ELSE 'NORMAL'
     END                                                                         AS peak_flag,
     CAST(sample_time AS TIMESTAMP)                                              AS sample_time,
@@ -64,6 +65,7 @@ FROM (
       AND road_id IS NOT NULL
       AND CAST(jam_level AS INT) BETWEEN 1 AND 5
       AND CAST(congestion_rate AS DECIMAL(5,2)) BETWEEN 0 AND 100
+      AND CAST(traffic_flow AS INT) >= 0 AND CAST(traffic_flow AS INT) <= 5000  -- 异常流量过滤
 ) t
 WHERE rn = 1;
 

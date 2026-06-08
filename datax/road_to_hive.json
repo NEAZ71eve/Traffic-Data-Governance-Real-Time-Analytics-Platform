@@ -1,0 +1,63 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 3,
+        "byte": 10485760
+      },
+      "errorLimit": {
+        "record": 0,
+        "percentage": 0.02
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "traffic_admin",
+            "password": "${MYSQL_PASSWORD}",
+            "connection": [
+              {
+                "querySql": [
+                  "SELECT road_id, road_name, road_type, road_length, lane_count, speed_limit, area_id, direction, status, updated_at FROM t_road WHERE updated_at >= '${yesterday}' AND updated_at < '${today}'"
+                ],
+                "jdbcUrl": [
+                  "jdbc:mysql://10.0.1.100:3306/traffic_business?useSSL=false&useUnicode=true&characterEncoding=utf8"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "hdfswriter",
+          "parameter": {
+            "defaultFS": "hdfs://namenode:9000",
+            "fileType": "orc",
+            "path": "/user/hive/warehouse/traffic_db.db/ods_road_info/dt=${date}",
+            "fileName": "road_info",
+            "column": [
+              {"name": "road_id", "type": "STRING"},
+              {"name": "road_name", "type": "STRING"},
+              {"name": "road_type", "type": "STRING"},
+              {"name": "road_length", "type": "DOUBLE"},
+              {"name": "lane_count", "type": "INT"},
+              {"name": "speed_limit", "type": "INT"},
+              {"name": "area_id", "type": "STRING"},
+              {"name": "direction", "type": "STRING"},
+              {"name": "status", "type": "STRING"},
+              {"name": "updated_at", "type": "STRING"}
+            ],
+            "writeMode": "append",
+            "fieldDelimiter": "\t",
+            "compress": "SNAPPY",
+            "hadoopConfig": {
+              "mapreduce.map.memory.mb": "2048",
+              "mapreduce.reduce.memory.mb": "4096"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 3,
+        "byte": 10485760
+      },
+      "errorLimit": {
+        "record": 10,
+        "percentage": 0.05
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "traffic_admin",
+            "password": "${MYSQL_PASSWORD}",
+            "connection": [
+              {
+                "querySql": [
+                  "SELECT device_id, device_name, device_type, device_model, road_id, area_id, install_date, manufacturer, firmware_ver, ip_address, status, updated_at FROM t_device WHERE updated_at >= '${yesterday}' AND updated_at < '${today}'"
+                ],
+                "jdbcUrl": [
+                  "jdbc:mysql://10.0.1.100:3306/traffic_business?useSSL=false&useUnicode=true&characterEncoding=utf8"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "hdfswriter",
+          "parameter": {
+            "defaultFS": "hdfs://namenode:9000",
+            "fileType": "orc",
+            "path": "/user/hive/warehouse/traffic_db.db/ods_device_info/dt=${date}",
+            "fileName": "device_info",
+            "column": [
+              {"name": "device_id", "type": "STRING"},
+              {"name": "device_name", "type": "STRING"},
+              {"name": "device_type", "type": "STRING"},
+              {"name": "device_model", "type": "STRING"},
+              {"name": "road_id", "type": "STRING"},
+              {"name": "area_id", "type": "STRING"},
+              {"name": "install_date", "type": "STRING"},
+              {"name": "manufacturer", "type": "STRING"},
+              {"name": "firmware_ver", "type": "STRING"},
+              {"name": "ip_address", "type": "STRING"},
+              {"name": "status", "type": "STRING"},
+              {"name": "updated_at", "type": "STRING"}
+            ],
+            "writeMode": "append",
+            "fieldDelimiter": "\t",
+            "compress": "SNAPPY",
+            "hadoopConfig": {
+              "mapreduce.map.memory.mb": "2048",
+              "mapreduce.reduce.memory.mb": "4096"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

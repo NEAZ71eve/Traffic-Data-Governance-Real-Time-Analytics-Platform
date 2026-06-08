@@ -53,7 +53,7 @@ SELECT
     END                                                                         AS vehicle_type,
     CAST(lane AS INT)                                                           AS lane,
     HOUR(pass_time)                                                             AS hour,
-    CAST(ROUND(speed / 1000.0, 4)                                              AS DECIMAL(10,4)) AS speed_km_per_s,
+    CAST(ROUND(speed / 3600.0, 4)                                              AS DECIMAL(10,4)) AS speed_km_per_s,
     dt
 FROM (
     SELECT

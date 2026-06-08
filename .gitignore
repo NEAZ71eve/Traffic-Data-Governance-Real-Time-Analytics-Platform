@@ -1,0 +1,31 @@
+# Binary databases
+*.db
+*.sqlite
+
+# Python
+__pycache__/
+*.pyc
+
+# Superset
+.superset/
+
+# Demo output
+demo_output/
+
+# IDE
+.vscode/
+.idea/
+
+# Temp scripts
+check_state.py
+create_charts.py
+mount_charts.py
+test_chart_api.py
+verify_superset.py
+run_superset.py
+superset_setup.py
+superset_api_setup.py
+
+# OS
+.DS_Store
+Thumbs.db

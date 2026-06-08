@@ -15,6 +15,12 @@ import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
+import org.apache.flink.streaming.connectors.redis.RedisSink;
+import org.apache.flink.streaming.connectors.redis.common.config.FlinkJedisPoolConfig;
+import org.apache.flink.streaming.connectors.redis.common.mapper.RedisCommand;
+import org.apache.flink.streaming.connectors.redis.common.mapper.RedisCommandDescription;
+import org.apache.flink.streaming.connectors.redis.common.mapper.RedisMapper;
 import org.apache.flink.streaming.util.serialization.SimpleStringSchema;
 import org.apache.flink.util.OutputTag;
 
@@ -162,6 +168,21 @@ public class DeviceStatusCEP {
             })
             .within(Time.minutes(10));
 
+        // ==========================================
+        // CEP规则4：高频告警检测（5分钟内同一设备告警 > 10次）
+        // 使用 times() 匹配模式：device_id 相同的告警记录在5分钟内出现超过10次
+        // ==========================================
+        Pattern<DeviceStatus, ?> highFreqPattern = Pattern.<DeviceStatus>begin("first")
+            .where(new SimpleCondition<DeviceStatus>() {
+                @Override
+                public boolean filter(DeviceStatus value) {
+                    return value.onlineFlag != null;
+                }
+            })
+            .timesOrMore(10)  // 连续10次以上
+            .consecutive()
+            .within(Time.minutes(5));
+
         // 应用CEP模式
         DataStream<String> offlineAlert = CEP.pattern(
             stream.keyBy(d -> d.deviceId), offlinePattern
@@ -175,10 +196,31 @@ public class DeviceStatusCEP {
             stream.keyBy(d -> d.deviceId), highTempPattern
         ).select(new AlertSelector("TEMP_HIGH", "MAJOR"));
 
-        // 合并所有告警流，输出
-        offlineAlert.union(cpuAlert).union(tempAlert)
-            .name("CEP Alert Union").uid("cep-alert-union")
-            .print().name("Alert Printer").uid("alert-printer");
+        DataStream<String> highFreqAlert = CEP.pattern(
+            stream.keyBy(d -> d.deviceId), highFreqPattern
+        ).select(new AlertSelector("HIGH_FREQ", "CRITICAL"));
+
+        // 合并所有告警流
+        DataStream<String> allAlerts = offlineAlert.union(cpuAlert).union(tempAlert).union(highFreqAlert)
+            .name("CEP Alert Union").uid("cep-alert-union");
+
+        // 输出1: 控制台打印（开发调试用）
+        allAlerts.print().name("Alert Printer").uid("alert-printer");
+
+        // 输出2: Kafka device_alarm Topic（下游告警系统消费）
+        Properties producerProps = new Properties();
+        producerProps.setProperty("bootstrap.servers", "kafka:9092");
+        allAlerts.addSink(
+            new FlinkKafkaProducer<>("device_alarm", new SimpleStringSchema(), producerProps)
+        ).name("Kafka Alert Sink").uid("kafka-alert-sink");
+
+        // 输出3: Redis实时告警缓存（ZSET按时间排序，HASH存储详情）
+        FlinkJedisPoolConfig jedisConfig = new FlinkJedisPoolConfig.Builder()
+            .setHost("redis")
+            .setPort(6379)
+            .build();
+        allAlerts.addSink(new RedisSink<>(jedisConfig, new AlertRedisMapper()))
+            .name("Redis Alert Sink").uid("redis-alert-sink");
 
         env.execute("Device Status CEP Monitoring");
     }
@@ -225,9 +267,47 @@ public class DeviceStatusCEP {
                 alertLevel, alertType, first.deviceId,
                 alertType.equals("OFFLINE") ? "continuous offline" :
                 alertType.equals("CPU_HIGH") ? "CPU usage exceeds 90%" :
-                "temperature exceeds 80°C",
+                alertType.equals("TEMP_HIGH") ? "temperature exceeds 80°C" :
+                "high frequency alerts (>10 in 5min)",
                 System.currentTimeMillis()
             );
+        }
+    }
+
+    /**
+     * Redis告警映射器：写入Redis缓存
+     * - ZSET: "device:alerts:{deviceId}" → {timestamp} score → 按时间排序的告警列表
+     * - HASH: "device:alert:detail:{alertId}" → 告警详情
+     */
+    private static class AlertRedisMapper implements RedisMapper<String> {
+        @Override
+        public RedisCommandDescription getCommandDescription() {
+            // 写入 ZSET 按时间戳排序
+            return new RedisCommandDescription(RedisCommand.ZADD, "device:alerts:realtime");
+        }
+
+        @Override
+        public String getKeyFromData(String data) {
+            // data format: "ALERT|CRITICAL|OFFLINE|Device DEV001 continuous offline... at 1234567890"
+            String[] parts = data.split("\\|");
+            if (parts.length >= 4) {
+                String deviceId = parts[3].replace("Device ", "").split(" ")[0];
+                return "device:alerts:" + deviceId;
+            }
+            return "device:alerts:unknown";
+        }
+
+        @Override
+        public String getValueFromData(String data) {
+            // 提取时间戳作为score
+            long timestamp = System.currentTimeMillis();
+            String[] parts = data.split(" at ");
+            if (parts.length >= 2) {
+                try {
+                    timestamp = Long.parseLong(parts[parts.length - 1].trim());
+                } catch (NumberFormatException ignored) {}
+            }
+            return timestamp + "#" + data;
         }
     }
 }

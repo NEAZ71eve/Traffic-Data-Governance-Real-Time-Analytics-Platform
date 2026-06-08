@@ -30,7 +30,9 @@ TBLPROPERTIES (
 
 -- ============================================
 -- 每日ETL：从DWD聚合到DWS
--- 处理数据倾斜：热点道路使用随机前缀打散后两阶段聚合
+-- 处理数据倾斜：热点道路使用随机前缀+MOD打散后两阶段聚合
+-- 阶段1: 加 0~9 随机前缀局部聚合 → 打散热点key
+-- 阶段2: 去掉前缀再次聚合 → 最终结果
 -- ============================================
 SET hive.exec.dynamic.partition = true;
 SET hive.exec.dynamic.partition.mode = nonstrict;
@@ -52,20 +54,35 @@ SELECT
     SUM(other_car_cnt)                                                          AS other_car_cnt,
     dt
 FROM (
+    -- 阶段2: 去掉随机前缀，再次聚合（去掉前缀用SUBSTR从第3位开始）
     SELECT
-        road_id,
+        SUBSTR(skew_key, 3)                                                     AS road_id,
         hour,
-        COUNT(1)                                       AS traffic_count,
-        SUM(speed)                                     AS total_speed,
-        SUM(CASE WHEN vehicle_type = '小型车' THEN 1 ELSE 0 END) AS small_car_cnt,
-        SUM(CASE WHEN vehicle_type = '中型车' THEN 1 ELSE 0 END) AS medium_car_cnt,
-        SUM(CASE WHEN vehicle_type = '大型车' THEN 1 ELSE 0 END) AS large_car_cnt,
-        SUM(CASE WHEN vehicle_type NOT IN ('小型车','中型车','大型车') THEN 1 ELSE 0 END) AS other_car_cnt,
+        SUM(cnt)                                                                AS traffic_count,
+        SUM(total_spd)                                                          AS total_speed,
+        SUM(sc)                                                                 AS small_car_cnt,
+        SUM(mc)                                                                 AS medium_car_cnt,
+        SUM(lc)                                                                 AS large_car_cnt,
+        SUM(oc)                                                                 AS other_car_cnt,
         dt
-    FROM traffic_db.dwd_vehicle_pass_di
-    WHERE dt = '${date}'
-    GROUP BY road_id, hour, dt
-) t
+    FROM (
+        -- 阶段1: 加0~9随机前缀打散，局部聚合
+        SELECT
+            CONCAT(CAST(FLOOR(RAND() * 10) AS STRING), '_', road_id)           AS skew_key,
+            hour,
+            COUNT(1)                                                            AS cnt,
+            SUM(speed)                                                          AS total_spd,
+            SUM(CASE WHEN vehicle_type = '小型车' THEN 1 ELSE 0 END)           AS sc,
+            SUM(CASE WHEN vehicle_type = '中型车' THEN 1 ELSE 0 END)           AS mc,
+            SUM(CASE WHEN vehicle_type = '大型车' THEN 1 ELSE 0 END)           AS lc,
+            SUM(CASE WHEN vehicle_type NOT IN ('小型车','中型车','大型车') THEN 1 ELSE 0 END) AS oc,
+            dt
+        FROM traffic_db.dwd_vehicle_pass_di
+        WHERE dt = '${date}'
+        GROUP BY CONCAT(CAST(FLOOR(RAND() * 10) AS STRING), '_', road_id), hour, dt
+    ) t1
+    GROUP BY SUBSTR(skew_key, 3), hour, dt
+) t2
 GROUP BY road_id, hour, dt;
 
 ALTER TABLE traffic_db.dws_road_hour_flow ADD IF NOT EXISTS PARTITION (dt = '${date}');

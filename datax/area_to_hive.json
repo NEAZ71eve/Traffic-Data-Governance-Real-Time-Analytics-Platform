@@ -1,0 +1,59 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1,
+        "byte": 5242880
+      },
+      "errorLimit": {
+        "record": 0,
+        "percentage": 0.01
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "traffic_admin",
+            "password": "${MYSQL_PASSWORD}",
+            "connection": [
+              {
+                "querySql": [
+                  "SELECT area_id, area_name, area_code, city_id, city_name, province_id, province_name, area_level, area_type, updated_at FROM t_area WHERE updated_at >= '${yesterday}' OR updated_at IS NULL"
+                ],
+                "jdbcUrl": [
+                  "jdbc:mysql://10.0.1.100:3306/traffic_business?useSSL=false&useUnicode=true&characterEncoding=utf8"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "hdfswriter",
+          "parameter": {
+            "defaultFS": "hdfs://namenode:9000",
+            "fileType": "orc",
+            "path": "/user/hive/warehouse/traffic_db.db/ods_area_info/dt=${date}",
+            "fileName": "area_info",
+            "column": [
+              {"name": "area_id", "type": "STRING"},
+              {"name": "area_name", "type": "STRING"},
+              {"name": "area_code", "type": "STRING"},
+              {"name": "city_id", "type": "STRING"},
+              {"name": "city_name", "type": "STRING"},
+              {"name": "province_id", "type": "STRING"},
+              {"name": "province_name", "type": "STRING"},
+              {"name": "area_level", "type": "STRING"},
+              {"name": "area_type", "type": "STRING"},
+              {"name": "updated_at", "type": "STRING"}
+            ],
+            "writeMode": "truncate",
+            "fieldDelimiter": "\t",
+            "compress": "SNAPPY"
+          }
+        }
+      }
+    ]
+  }
+}

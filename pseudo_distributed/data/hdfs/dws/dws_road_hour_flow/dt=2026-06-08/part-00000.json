@@ -1,0 +1,66 @@
+[
+  {
+    "road_id": 1,
+    "dt": "2026-06-08",
+    "hour": 22,
+    "traffic_count": 7,
+    "avg_speed": 53.4,
+    "jam_level": 1
+  },
+  {
+    "road_id": 2,
+    "dt": "2026-06-08",
+    "hour": 22,
+    "traffic_count": 7,
+    "avg_speed": 56.4,
+    "jam_level": 1
+  },
+  {
+    "road_id": 3,
+    "dt": "2026-06-08",
+    "hour": 22,
+    "traffic_count": 6,
+    "avg_speed": 56.0,
+    "jam_level": 1
+  },
+  {
+    "road_id": 4,
+    "dt": "2026-06-08",
+    "hour": 22,
+    "traffic_count": 6,
+    "avg_speed": 59.0,
+    "jam_level": 1
+  },
+  {
+    "road_id": 5,
+    "dt": "2026-06-08",
+    "hour": 22,
+    "traffic_count": 6,
+    "avg_speed": 62.0,
+    "jam_level": 1
+  },
+  {
+    "road_id": 6,
+    "dt": "2026-06-08",
+    "hour": 22,
+    "traffic_count": 6,
+    "avg_speed": 65.0,
+    "jam_level": 1
+  },
+  {
+    "road_id": 7,
+    "dt": "2026-06-08",
+    "hour": 22,
+    "traffic_count": 6,
+    "avg_speed": 53.0,
+    "jam_level": 1
+  },
+  {
+    "road_id": 8,
+    "dt": "2026-06-08",
+    "hour": 22,
+    "traffic_count": 6,
+    "avg_speed": 56.0,
+    "jam_level": 1
+  }
+]

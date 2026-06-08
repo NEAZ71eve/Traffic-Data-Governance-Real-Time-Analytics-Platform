@@ -8,9 +8,10 @@
 CREATE TABLE IF NOT EXISTS traffic_db.dim_device_zip (
     device_id       STRING      COMMENT '设备ID(主键)',
     device_name     STRING      COMMENT '设备名称',
-    device_type     STRING      COMMENT '设备类型(CAMERA/SENSOR/RADAR/GATE)',
+    device_type     STRING      COMMENT '设备类型(CAMERA/SENSOR/RADAR/GATE/TRAFFIC_LIGHT)',
     device_model    STRING      COMMENT '设备型号',
     road_id         STRING      COMMENT '所属道路ID',
+    area_id         STRING      COMMENT '所属区域ID',
     install_date    STRING      COMMENT '安装日期(yyyy-MM-dd)',
     manufacturer    STRING      COMMENT '生产厂商',
     firmware_ver    STRING      COMMENT '固件版本',
@@ -36,7 +37,7 @@ TBLPROPERTIES (
 -- ============================================
 -- INSERT OVERWRITE TABLE traffic_db.dim_device_zip PARTITION (dt = '${date}')
 -- SELECT
---     device_id, device_name, device_type, device_model, road_id,
+--     device_id, device_name, device_type, device_model, road_id, area_id,
 --     install_date, manufacturer, firmware_ver, status,
 --     '1970-01-01' AS start_time, '9999-12-31' AS end_time, 'Y' AS is_current
 -- FROM traffic_db.ods_device_info;

@@ -18,7 +18,9 @@ CREATE TABLE IF NOT EXISTS traffic_db.ads_traffic_operation (
     jam_road_ratio      DECIMAL(5,2) COMMENT '拥堵道路占比(%)',
     severe_jam_count    BIGINT      COMMENT '严重拥堵道路数',
     avg_congestion_rate DECIMAL(5,2) COMMENT '平均拥堵率(%)',
-    total_road_count    BIGINT      COMMENT '道路总数'
+    total_road_count    BIGINT      COMMENT '道路总数',
+    peak_hour_duration  INT         COMMENT '高峰持续时长(小时)',
+    area_saturation     DECIMAL(5,2) COMMENT '区域饱和度(%)'
 )
 COMMENT '交通运营综合指标表(ADS)'
 PARTITIONED BY (dt STRING COMMENT '日期分区 yyyy-MM-dd')
@@ -56,6 +58,10 @@ SELECT
     SUM(CASE WHEN jh.jam_level = 5 THEN 1 ELSE 0 END)                         AS severe_jam_count,
     ROUND(AVG(jh.avg_congestion_rate), 2)                                       AS avg_congestion_rate,
     COUNT(DISTINCT dh.road_id)                                                  AS total_road_count,
+    -- 高峰持续时长: 统计拥堵率>50%的连续小时数
+    COUNT(DISTINCT CASE WHEN jh.avg_congestion_rate > 50 THEN dh.hour END)    AS peak_hour_duration,
+    -- 区域饱和度: 车流量 / (道路数 * 理论最大通行量 3000)
+    ROUND(SUM(dh.traffic_count) * 100.0 / NULLIF(COUNT(DISTINCT dh.road_id) * 3000, 0), 2) AS area_saturation,
     dh.dt
 FROM traffic_db.dws_road_hour_flow dh
 JOIN traffic_db.dim_road_zip r

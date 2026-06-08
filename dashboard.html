@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智慧城市交通数据治理实时分析平台 — 可视化大屏</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft YaHei','PingFang SC',sans-serif;background:#0a0e27;color:#e0e6f0;overflow-x:hidden}
+
+/* Header */
+.header{background:linear-gradient(90deg,#0d1137 0%,#1a1f4e 50%,#0d1137 100%);border-bottom:2px solid #00d4ff;padding:12px 30px;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:22px;background:linear-gradient(90deg,#00d4ff,#7b68ee);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:2px}
+.header .time{font-size:15px;color:#8892b0}
+.header .live-dot{display:inline-block;width:10px;height:10px;background:#00ff88;border-radius:50%;margin-right:8px;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 8px #00ff88}50%{opacity:.3;box-shadow:0 0 20px #00ff88}}
+
+/* Tab Navigation */
+.tabs{display:flex;gap:0;background:#111640;padding:0 30px;border-bottom:1px solid #1e2358}
+.tab{padding:14px 30px;cursor:pointer;color:#8892b0;font-size:14px;border-bottom:3px solid transparent;transition:all .3s;position:relative}
+.tab:hover{color:#ccd6f6;background:rgba(0,212,255,.05)}
+.tab.active{color:#00d4ff;border-bottom-color:#00d4ff;background:rgba(0,212,255,.08)}
+.tab .badge{background:#ff4757;color:#fff;font-size:10px;padding:2px 7px;border-radius:10px;margin-left:6px;animation:pulse 2s infinite}
+
+/* Main Content */
+.content{padding:20px 30px}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* KPI Cards Row */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:18px}
+.kpi-card{background:linear-gradient(135deg,#131842 0%,#1a1f52 100%);border:1px solid #1e2760;border-radius:10px;padding:22px;position:relative;overflow:hidden}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%}
+.kpi-card.green::before{background:#00ff88}
+.kpi-card.blue::before{background:#00d4ff}
+.kpi-card.orange::before{background:#ffa502}
+.kpi-card.red::before{background:#ff4757}
+.kpi-label{font-size:13px;color:#8892b0;margin-bottom:8px}
+.kpi-value{font-size:36px;font-weight:700;transition:all .3s}
+.kpi-value.green{color:#00ff88}
+.kpi-value.blue{color:#00d4ff}
+.kpi-value.orange{color:#ffa502}
+.kpi-value.red{color:#ff4757}
+.kpi-sub{font-size:12px;color:#5a6380;margin-top:4px}
+
+/* Chart Grid */
+.chart-grid{display:grid;gap:18px}
+.chart-grid.col2{grid-template-columns:1fr 1fr}
+.chart-grid.col3{grid-template-columns:1fr 1fr 1fr}
+.chart-grid.col4{grid-template-columns:1fr 1fr 1fr 1fr}
+.chart-grid.col-2-1{grid-template-columns:2fr 1fr}
+
+.chart-box{background:#111640;border:1px solid #1e2358;border-radius:10px;padding:16px;min-height:300px;position:relative}
+.chart-box h3{font-size:14px;color:#ccd6f6;margin-bottom:10px;padding-left:12px;border-left:3px solid #00d4ff}
+.chart-box .chart{width:100%;height:calc(100% - 30px);min-height:250px}
+
+/* Table in chart */
+.data-table{width:100%;border-collapse:collapse;font-size:13px}
+.data-table th{color:#8892b0;text-align:left;padding:10px 8px;border-bottom:1px solid #1e2358;font-weight:400}
+.data-table td{padding:9px 8px;border-bottom:1px solid #121840;color:#ccd6f6}
+.data-table tr:hover td{background:rgba(0,212,255,.04)}
+.data-table .rank{display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;border-radius:4px;font-size:12px;margin-right:6px}
+.data-table .rank.top1{background:#ff4757;color:#fff}
+.data-table .rank.top2{background:#ffa502;color:#fff}
+.data-table .rank.top3{background:#ffa502;color:#fff}
+.data-table .rank.normal{background:#1e2358;color:#8892b0}
+
+/* Health bar */
+.health-bar{display:inline-block;width:80px;height:8px;background:#1e2358;border-radius:4px;overflow:hidden;vertical-align:middle}
+.health-bar .fill{height:100%;border-radius:4px;transition:width .5s}
+.health-bar .fill.excellent{background:#00ff88}
+.health-bar .fill.good{background:#00d4ff}
+.health-bar .fill.fair{background:#ffa502}
+.health-bar .fill.poor{background:#ff4757}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>智慧城市交通数据治理实时分析平台</h1>
+  <div class="time">
+    <span class="live-dot"></span>
+    <span id="currentTime">--</span>
+  </div>
+</div>
+
+<!-- Tab Navigation -->
+<div class="tabs">
+  <div class="tab active" data-tab="overview">交通总览<span class="badge">LIVE</span></div>
+  <div class="tab" data-tab="realtime">实时路况</div>
+  <div class="tab" data-tab="device">设备运维</div>
+  <div class="tab" data-tab="quality">数据质量</div>
+</div>
+
+<!-- Content -->
+<div class="content">
+
+  <!-- Tab 1: 交通总览 -->
+  <div class="tab-panel active" id="tab-overview">
+    <div class="kpi-row" id="kpiOverview"></div>
+    <div class="chart-grid col2" style="margin-bottom:18px">
+      <div class="chart-box"><h3>24小时车流趋势</h3><div class="chart" id="chartFlowTrend"></div></div>
+      <div class="chart-box"><h3>区域拥堵热力分布</h3><div class="chart" id="chartJamHeat"></div></div>
+    </div>
+    <div class="chart-grid col-2-1">
+      <div class="chart-box"><h3>TOP10 拥堵路段排行</h3><div class="chart" id="chartTopJamRoads"></div></div>
+      <div class="chart-box"><h3>车辆类型分布</h3><div class="chart" id="chartVehicleType"></div></div>
+    </div>
+  </div>
+
+  <!-- Tab 2: 实时路况 -->
+  <div class="tab-panel" id="tab-realtime">
+    <div class="kpi-row" id="kpiRealtime"></div>
+    <div class="chart-grid col2" style="margin-bottom:18px">
+      <div class="chart-box"><h3>实时各道路车流量 <small style="color:#8892b0">(5秒刷新)</small></h3><div class="chart" id="chartRTFlow"></div></div>
+      <div class="chart-box"><h3>实时各道路平均车速</h3><div class="chart" id="chartRTSpeed"></div></div>
+    </div>
+    <div class="chart-grid col2">
+      <div class="chart-box"><h3>拥堵等级分布(实时)</h3><div class="chart" id="chartRTJamLevel"></div></div>
+      <div class="chart-box"><h3>实时拥堵道路列表</h3><div style="max-height:270px;overflow-y:auto"><table class="data-table" id="tblRTJamRoads"><thead><tr><th>#</th><th>道路名称</th><th>拥堵等级</th><th>均速(km/h)</th><th>车流量</th></tr></thead><tbody></tbody></table></div></div>
+    </div>
+  </div>
+
+  <!-- Tab 3: 设备运维 -->
+  <div class="tab-panel" id="tab-device">
+    <div class="kpi-row" id="kpiDevice"></div>
+    <div class="chart-grid col2" style="margin-bottom:18px">
+      <div class="chart-box"><h3>设备健康评分排行</h3><div class="chart" id="chartHealthScore"></div></div>
+      <div class="chart-box"><h3>设备类型在线率</h3><div class="chart" id="chartOnlineRate"></div></div>
+    </div>
+    <div class="chart-grid col2">
+      <div class="chart-box"><h3>MTBF/MTTR 可靠性指标</h3><div class="chart" id="chartMTBF"></div></div>
+      <div class="chart-box"><h3>离线设备列表</h3><div style="max-height:270px;overflow-y:auto"><table class="data-table" id="tblOffline"><thead><tr><th>设备名称</th><th>设备类型</th><th>所属道路</th><th>离线时长</th></tr></thead><tbody></tbody></table></div></div>
+    </div>
+  </div>
+
+  <!-- Tab 4: 数据质量 -->
+  <div class="tab-panel" id="tab-quality">
+    <div class="kpi-row" id="kpiQuality"></div>
+    <div class="chart-grid col3" style="margin-bottom:18px">
+      <div class="chart-box"><h3>四维质量评分</h3><div class="chart" id="chartQualityScore"></div></div>
+      <div class="chart-box"><h3>各表完整性</h3><div class="chart" id="chartCompleteness"></div></div>
+      <div class="chart-box"><h3>Kafka 消费延迟趋势</h3><div class="chart" id="chartKafkaLag"></div></div>
+    </div>
+    <div class="chart-box"><h3>数据质量检查明细</h3><div style="max-height:240px;overflow-y:auto"><table class="data-table" id="tblQuality"><thead><tr><th>检查项</th><th>目标表</th><th>检查类型</th><th>阈值</th><th>实际值</th><th>状态</th></tr></thead><tbody></tbody></table></div></div>
+  </div>
+
+</div>
+
+<script>
+// ==================== 全局工具函数 ====================
+const colors = ['#00d4ff','#00ff88','#ffa502','#ff4757','#7b68ee','#ff6b81','#2ed573','#1e90ff','#eccc68','#ff6348'];
+const jamColors = ['#00ff88','#00d4ff','#ffa502','#ff6348','#ff4757'];
+const jamLabels = ['畅通','基本畅通','轻度拥堵','中度拥堵','严重拥堵'];
+
+function rand(min,max){return Math.floor(Math.random()*(max-min+1))+min}
+function initChart(domId){
+  const dom = document.getElementById(domId);
+  if(!dom) return null;
+  let c = echarts.init(dom);
+  window.addEventListener('resize',()=>c.resize());
+  return c;
+}
+
+// 模拟数据生成
+function genHourFlow(){
+  const hours=[], flows=[], speeds=[];
+  for(let h=0;h<24;h++){
+    hours.push(h+'时');
+    let base = (h>=7&&h<=9)?1200:(h>=17&&h<=19)?1100:(h>=22||h<=5)?150:500;
+    flows.push(base+rand(-200,300));
+    speeds.push(h>=7&&h<=9||h>=17&&h<=19?rand(15,35):rand(40,70));
+  }
+  return {hours,flows,speeds};
+}
+
+// ==================== Tab切换 ====================
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',function(){
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    this.classList.add('active');
+    const panelId='tab-'+this.dataset.tab;
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    document.getElementById(panelId).classList.add('active');
+    setTimeout(resizeAllCharts,100);
+  });
+});
+
+function resizeAllCharts(){
+  Object.values(charts).forEach(c=>c&&c.resize());
+}
+
+// ==================== 时钟 ====================
+function updateClock(){
+  const now=new Date();
+  document.getElementById('currentTime').textContent=
+    now.getFullYear()+'-'+
+    String(now.getMonth()+1).padStart(2,'0')+'-'+
+    String(now.getDate()).padStart(2,'0')+' '+
+    String(now.getHours()).padStart(2,'0')+':'+
+    String(now.getMinutes()).padStart(2,'0')+':'+
+    String(now.getSeconds()).padStart(2,'0');
+}
+setInterval(updateClock,1000);
+updateClock();
+
+// ==================== 全局图表容器 ====================
+const charts = {};
+
+// ==================== TAB 1: 交通总览 ====================
+function renderKPIOverview(){
+  document.getElementById('kpiOverview').innerHTML=`
+    <div class="kpi-card blue"><div class="kpi-label">今日总车流量</div><div class="kpi-value blue" id="kvFlow">${rand(4800000,5200000).toLocaleString()}</div><div class="kpi-sub">较昨日 +${rand(2,8)}%</div></div>
+    <div class="kpi-card green"><div class="kpi-label">平均通行速度</div><div class="kpi-value green" id="kvSpeed">${rand(38,45)} km/h</div><div class="kpi-sub">城市主干道均值</div></div>
+    <div class="kpi-card orange"><div class="kpi-label">拥堵路段数</div><div class="kpi-value orange" id="kvJam">${rand(12,25)}</div><div class="kpi-sub">较昨日 ${rand(-5,3)>0?'+':''}${rand(1,5)}</div></div>
+    <div class="kpi-card red"><div class="kpi-label">当前高峰持续</div><div class="kpi-value red" id="kvPeak">${rand(45,120)} min</div><div class="kpi-sub">预计${rand(20,40)}分钟后缓解</div></div>`;
+}
+
+function renderFlowTrend(){
+  const c=initChart('chartFlowTrend'); charts.flowTrend=c;
+  const d=genHourFlow();
+  c.setOption({
+    tooltip:{trigger:'axis',backgroundColor:'#111640',borderColor:'#1e2358',textStyle:{color:'#ccd6f6'}},
+    legend:{data:['车流量','平均车速'],textStyle:{color:'#8892b0'},top:0,right:10},
+    grid:{left:50,right:60,top:40,bottom:30},
+    xAxis:{type:'category',data:d.hours,axisLine:{lineStyle:{color:'#1e2358'}},axisLabel:{color:'#8892b0',fontSize:11}},
+    yAxis:[
+      {type:'value',name:'辆',nameTextStyle:{color:'#8892b0'},axisLine:{lineStyle:{color:'#1e2358'}},splitLine:{lineStyle:{color:'#121840'}},axisLabel:{color:'#8892b0'}},
+      {type:'value',name:'km/h',nameTextStyle:{color:'#8892b0'},axisLine:{lineStyle:{color:'#1e2358'}},splitLine:{show:false},axisLabel:{color:'#8892b0'}}
+    ],
+    series:[
+      {name:'车流量',type:'bar',data:d.flows,itemStyle:{color:'#00d4ff',borderRadius:[4,4,0,0]},barWidth:12},
+      {name:'平均车速',type:'line',yAxisIndex:1,data:d.speeds,itemStyle:{color:'#00ff88'},lineStyle:{width:2},symbol:'circle',symbolSize:4}
+    ]
+  });
+}
+
+function renderJamHeat(){
+  const c=initChart('chartJamHeat'); charts.jamHeat=c;
+  const areas=['朝阳区','海淀区','浦东新区','天河区','南山区'];
+  const hours=['6','7','8','9','10','11','12','13','14','15','16','17','18','19','20'];
+  const data=[];
+  areas.forEach((a,i)=>{hours.forEach((h,j)=>{
+    let base=(j<=3||j>=12)?80:(j>=6&&j<=11)?30:50;
+    data.push([j,i,rand(base-15,base+15)]);
+  })});
+  c.setOption({
+    tooltip:{backgroundColor:'#111640',borderColor:'#1e2358',textStyle:{color:'#ccd6f6'}},
+    grid:{left:70,right:30,top:10,bottom:30},
+    xAxis:{type:'category',data:hours,axisLabel:{color:'#8892b0',fontSize:11},axisLine:{lineStyle:{color:'#1e2358'}}},
+    yAxis:{type:'category',data:areas,axisLabel:{color:'#8892b0'},axisLine:{lineStyle:{color:'#1e2358'}}},
+    visualMap:{min:0,max:100,calculable:true,orient:'horizontal',left:'center',bottom:0,
+      inRange:{color:['#00ff88','#7bff40','#ffd700','#ffa502','#ff4757']},
+      textStyle:{color:'#8892b0'}},
+    series:[{type:'heatmap',data,label:{show:true,color:'#fff',fontSize:10},emphasis:{itemStyle:{shadowBlur:10,shadowColor:'rgba(0,0,0,0.5)'}}}]
+  });
+}
+
+function renderTopJamRoads(){
+  const c=initChart('chartTopJamRoads'); charts.topJam=c;
+  const roads=['长安街','东三环路','深南大道','中关村大街','天河路','世纪大道','建国路','中山大道','朝阳北路','滨海大道'];
+  const jamLevels=roads.map(()=>rand(25,92));
+  const sorted=roads.map((r,i)=>({name:r,value:jamLevels[i]})).sort((a,b)=>b.value-a.value);
+  c.setOption({
+    tooltip:{trigger:'axis',backgroundColor:'#111640',borderColor:'#1e2358',textStyle:{color:'#ccd6f6'},axisPointer:{type:'shadow'}},
+    grid:{left:90,right:30,top:10,bottom:30},
+    xAxis:{type:'value',name:'拥堵指数',axisLabel:{color:'#8892b0'},splitLine:{lineStyle:{color:'#121840'}}},
+    yAxis:{type:'category',data:sorted.map(x=>x.name).reverse(),inverse:true,axisLabel:{color:'#ccd6f6',fontSize:12},axisLine:{lineStyle:{color:'#1e2358'}}},
+    series:[{type:'bar',data:sorted.map(x=>x.value).reverse(),
+      itemStyle:{color:params=>{const v=params.value;return v>70?'#ff4757':v>50?'#ffa502':v>30?'#ffd700':'#00ff88'},
+      borderRadius:[0,4,4,0]},barWidth:16,label:{show:true,position:'right',color:'#8892b0',fontSize:11}}]
+  });
+}
+
+function renderVehicleType(){
+  const c=initChart('chartVehicleType'); charts.vehicleType=c;
+  c.setOption({
+    tooltip:{trigger:'item',backgroundColor:'#111640',borderColor:'#1e2358',textStyle:{color:'#ccd6f6'}},
+    legend:{orient:'vertical',right:10,top:'center',textStyle:{color:'#8892b0'}},
+    series:[{type:'pie',radius:['45%','75%'],center:['35%','50%'],
+      label:{show:true,formatter:'{b}\n{d}%',color:'#ccd6f6',fontSize:11},
+      data:[
+        {value:rand(1800000,2200000),name:'小型车',itemStyle:{color:'#00d4ff'}},
+        {value:rand(400000,600000),name:'中型车',itemStyle:{color:'#7b68ee'}},
+        {value:rand(150000,300000),name:'大型车',itemStyle:{color:'#ffa502'}},
+        {value:rand(50000,100000),name:'其他',itemStyle:{color:'#8892b0'}}
+      ]}]
+  });
+}
+
+// ==================== TAB 2: 实时路况 ====================
+function renderKPIRealtime(){
+  document.getElementById('kpiRealtime').innerHTML=`
+    <div class="kpi-card green"><div class="kpi-label">实时在线车辆</div><div class="kpi-value green" id="kvOnline">${rand(8000,15000).toLocaleString()}</div><div class="kpi-sub">5秒刷新</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">实时平均车速</div><div class="kpi-value blue" id="kvRTSpeed">${rand(40,55)} km/h</div><div class="kpi-sub">全市均值</div></div>
+    <div class="kpi-card orange"><div class="kpi-label">当前拥堵数</div><div class="kpi-value orange" id="kvRTJam">${rand(3,8)} 条</div><div class="kpi-sub">严重拥堵: ${rand(1,3)}</div></div>
+    <div class="kpi-card red"><div class="kpi-label">端到端延迟</div><div class="kpi-value red" id="kvLatency">${rand(1,4)}s</div><div class="kpi-sub">Kafka → Redis → 看板</div></div>`;
+}
+
+function renderRTFlow(){
+  const c=initChart('chartRTFlow'); charts.rtFlow=c;
+  const roads=['长安街','东三环路','深南大道','中关村大街','天河路','世纪大道','建国路','中山大道'];
+  c.setOption({
+    tooltip:{trigger:'axis',backgroundColor:'#111640',borderColor:'#1e2358',textStyle:{color:'#ccd6f6'}},
+    grid:{left:80,right:30,top:10,bottom:30},
+    xAxis:{type:'value',axisLabel:{color:'#8892b0'},splitLine:{lineStyle:{color:'#121840'}}},
+    yAxis:{type:'category',data:roads,inverse:true,axisLabel:{color:'#ccd6f6',fontSize:11},axisLine:{lineStyle:{color:'#1e2358'}}},
+    series:[{type:'bar',data:roads.map(()=>rand(300,900)),
+      itemStyle:{color:params=>colors[params.dataIndex%colors.length],borderRadius:[0,4,4,0]},
+      barWidth:16,label:{show:true,position:'right',color:'#8892b0',fontSize:11,formatter:'{c} 辆'}}]
+  });
+}
+
+function renderRTSpeed(){
+  const c=initChart('chartRTSpeed'); charts.rtSpeed=c;
+  const roads=['长安街','东三环路','深南大道','中关村大街','天河路','世纪大道','建国路','中山大道'];
+  const speeds=roads.map(()=>rand(18,68));
+  c.setOption({
+    tooltip:{trigger:'axis',backgroundColor:'#111640',borderColor:'#1e2358',textStyle:{color:'#ccd6f6'}},
+    grid:{left:80,right:60,top:20,bottom:30},
+    xAxis:{type:'value',max:80,axisLabel:{color:'#8892b0',formatter:'{value} km/h'},splitLine:{lineStyle:{color:'#121840'}}},
+    yAxis:{type:'category',data:roads,inverse:true,axisLabel:{color:'#ccd6f6',fontSize:11},axisLine:{lineStyle:{color:'#1e2358'}}},
+    series:[{type:'bar',data:speeds,
+      itemStyle:{color:params=>{const v=speeds[params.dataIndex];return v<25?'#ff4757':v<40?'#ffa502':v<55?'#00d4ff':'#00ff88'},borderRadius:[0,4,4,0]},
+      barWidth:16,label:{show:true,position:'right',color:'#8892b0',fontSize:11,formatter:'{c} km/h'},
+      markLine:{silent:true,data:[{xAxis:20,label:{formatter:'严重拥堵线',color:'#ff4757',fontSize:10},lineStyle:{color:'#ff4757',type:'dashed'}}]}}]
+  });
+}
+
+function renderRTJamLevel(){
+  const c=initChart('chartRTJamLevel'); charts.rtJam=c;
+  const d=jamLabels.map((l,i)=>({name:l,value:rand(i===0?40:10,i===4?30:25)}));
+  c.setOption({
+    tooltip:{trigger:'item',backgroundColor:'#111640',borderColor:'#1e2358',textStyle:{color:'#ccd6f6'}},
+    legend:{bottom:0,textStyle:{color:'#8892b0',fontSize:11}},
+    series:[{type:'pie',radius:['35%','70%'],center:['50%','45%'],
+      data:d.map((x,i)=>({...x,itemStyle:{color:jamColors[i]}})),
+      label:{color:'#ccd6f6',fontSize:11}}]
+  });
+}
+
+function renderRTJamRoadsTable(){
+  const roads=[{n:'长安街',l:4,s:18,f:850},{n:'深南大道',l:3,s:28,f:720},{n:'东三环路',l:4,s:15,f:680},{n:'中关村大街',l:2,s:35,f:550},{n:'建国路',l:3,s:25,f:490},{n:'天河路',l:1,s:52,f:380},{n:'中山大道',l:2,s:38,f:320}];
+  document.querySelector('#tblRTJamRoads tbody').innerHTML=roads.map((r,i)=>
+    `<tr><td><span class="rank ${i<3?'top'+(i+1):'normal'}">${i+1}</span></td><td>${r.n}</td><td style="color:${jamColors[r.l-1]}">${jamLabels[r.l-1]}</td><td>${r.s}</td><td>${r.f}</td></tr>`).join('');
+}
+
+// ==================== TAB 3: 设备运维 ====================
+function renderKPIDevice(){
+  document.getElementById('kpiDevice').innerHTML=`
+    <div class="kpi-card green"><div class="kpi-label">设备总数</div><div class="kpi-value green">20</div><div class="kpi-sub">在线 ${rand(16,19)} / 离线 ${rand(1,4)}</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">设备健康均分</div><div class="kpi-value blue">${rand(78,92)}</div><div class="kpi-sub">GOOD</div></div>
+    <div class="kpi-card orange"><div class="kpi-label">平均MTBF</div><div class="kpi-value orange">${rand(120,240)}h</div><div class="kpi-sub">平均故障间隔</div></div>
+    <div class="kpi-card red"><div class="kpi-label">平均MTTR</div><div class="kpi-value red">${rand(15,45)}min</div><div class="kpi-sub">平均修复时间</div></div>`;
+}
+
+function renderHealthScore(){
+  const c=initChart('chartHealthScore'); charts.health=c;
+  const devices=['长安街卡口1号','深南大道卡口1号','世纪大道雷达1号','东三环雷达1号','天河路卡口1号','滨海大道雷达1号','中关村卡口1号','中山大道卡口1号','建国路摄像头1号','科技园路摄像头1号'];
+  const scores=devices.map(()=>rand(55,98));
+  const sorted=devices.map((d,i)=>({name:d,score:scores[i]})).sort((a,b)=>b.score-a.score);
+  c.setOption({
+    tooltip:{trigger:'axis',backgroundColor:'#111640',borderColor:'#1e2358',textStyle:{color:'#ccd6f6'}},
+    grid:{left:120,right:60,top:10,bottom:30},
+    xAxis:{type:'value',max:100,axisLabel:{color:'#8892b0'},splitLine:{lineStyle:{color:'#121840'}}},
+    yAxis:{type:'category',data:sorted.map(x=>x.name),inverse:true,axisLabel:{color:'#ccd6f6',fontSize:11},axisLine:{lineStyle:{color:'#1e2358'}}},
+    series:[{type:'bar',data:sorted.map(x=>x.score),
+      itemStyle:{color:params=>{const v=sorted[params.dataIndex].score;return v>=90?'#00ff88':v>=75?'#00d4ff':v>=60?'#ffa502':'#ff4757'},borderRadius:[0,4,4,0]},
+      barWidth:14,label:{show:true,position:'right',color:'#ccd6f6',fontSize:11,formatter:'{c}分'},
+      markLine:{silent:true,data:[{xAxis:90,label:{formatter:'EXCELLENT',color:'#00ff88',fontSize:10},lineStyle:{color:'#00ff88',type:'dashed'}},{xAxis:60,label:{formatter:'FAIR',color:'#ffa502',fontSize:10},lineStyle:{color:'#ffa502',type:'dashed'}}]}]}]
+  });
+}
+
+function renderOnlineRate(){
+  const c=initChart('chartOnlineRate'); charts.online=c;
+  const types=['卡口','摄像头','雷达','传感器','红绿灯'];
+  c.setOption({
+    tooltip:{trigger:'axis',backgroundColor:'#111640',borderColor:'#1e2358',textStyle:{color:'#ccd6f6'}},
+    legend:{data:['在线','离线','维护'],textStyle:{color:'#8892b0'},top:0,right:10},
+    grid:{left:50,right:30,top:40,bottom:30},
+    xAxis:{type:'category',data:types,axisLabel:{color:'#ccd6f6'},axisLine:{lineStyle:{color:'#1e2358'}}},
+    yAxis:{type:'value',axisLabel:{color:'#8892b0'},splitLine:{lineStyle:{color:'#121840'}}},
+    series:[
+      {name:'在线',type:'bar',stack:'total',data:types.map(()=>rand(5,8)),itemStyle:{color:'#00ff88'},barWidth:30},
+      {name:'离线',type:'bar',stack:'total',data:types.map(()=>rand(0,2)),itemStyle:{color:'#ff4757'}},
+      {name:'维护',type:'bar',stack:'total',data:types.map(()=>rand(0,1)),itemStyle:{color:'#ffa502'}}
+    ]
+  });
+}
+
+function renderMTBF(){
+  const c=initChart('chartMTBF'); charts.mtbf=c;
+  const devices=['长安街卡口1号','深南大道卡口1号','世纪大道雷达1号','东三环雷达1号','天河路卡口1号'];
+  const mtbf=devices.map(()=>rand(80,400));
+  const mttr=devices.map(()=>rand(10,60));
+  c.setOption({
+    tooltip:{trigger:'axis',backgroundColor:'#111640',borderColor:'#1e2358',textStyle:{color:'#ccd6f6'}},
+    legend:{data:['MTBF(h)','MTTR(min)'],textStyle:{color:'#8892b0'},top:0,right:10},
+    grid:{left:120,right:60,top:40,bottom:30},
+    xAxis:{type:'value',axisLabel:{color:'#8892b0'},splitLine:{lineStyle:{color:'#121840'}}},
+    yAxis:{type:'category',data:devices,inverse:true,axisLabel:{color:'#ccd6f6',fontSize:10},axisLine:{lineStyle:{color:'#1e2358'}}},
+    series:[
+      {name:'MTBF(h)',type:'bar',data:mtbf,itemStyle:{color:'#00d4ff',borderRadius:[0,4,4,0]},barWidth:10,label:{show:true,position:'right',color:'#00d4ff',fontSize:10,formatter:'{c}h'}},
+      {name:'MTTR(min)',type:'bar',data:mttr,itemStyle:{color:'#ffa502',borderRadius:[0,4,4,0]},barWidth:10,label:{show:true,position:'right',color:'#ffa502',fontSize:10,formatter:'{c}min'}}
+    ]
+  });
+}
+
+function renderOfflineTable(){
+  const devices=[
+    {n:'张江路摄像头1号',t:'摄像头',r:'张江路',d:'3h 25min'},
+    {n:'中关村摄像头1号',t:'摄像头',r:'中关村大街',d:'1h 10min'}
+  ];
+  document.querySelector('#tblOffline tbody').innerHTML=devices.map(d=>
+    `<tr><td style="color:#ff4757">${d.n}</td><td>${d.t}</td><td>${d.r}</td><td style="color:#ffa502">${d.d}</td></tr>`).join('');
+  if(devices.length===0) document.querySelector('#tblOffline tbody').innerHTML='<tr><td colspan="4" style="text-align:center;color:#00ff88">全部设备在线</td></tr>';
+}
+
+// ==================== TAB 4: 数据质量 ====================
+function renderKPIQuality(){
+  const c=rand(97,99), u=rand(99,100), v=rand(97,99), t=rand(95,99);
+  document.getElementById('kpiQuality').innerHTML=`
+    <div class="kpi-card green"><div class="kpi-label">完整率</div><div class="kpi-value green">${c}.${rand(1,9)}%</div><div class="kpi-sub">阈值 99%</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">唯一率</div><div class="kpi-value blue">${u}.${rand(1,9)}%</div><div class="kpi-sub">阈值 99.9%</div></div>
+    <div class="kpi-card green"><div class="kpi-label">合法性</div><div class="kpi-value green">${v}.${rand(1,9)}%</div><div class="kpi-sub">阈值 99%</div></div>
+    <div class="kpi-card orange"><div class="kpi-label">及时性</div><div class="kpi-value orange">${t}.${rand(0,9)}%</div><div class="kpi-sub">Kafka Lag < 10000</div></div>`;
+}
+
+function renderQualityScore(){
+  const c=initChart('chartQualityScore'); charts.qs=c;
+  c.setOption({
+    tooltip:{backgroundColor:'#111640',borderColor:'#1e2358',textStyle:{color:'#ccd6f6'}},
+    radar:{center:['50%','50%'],radius:'65%',
+      indicator:[{name:'完整性',max:100},{name:'准确性',max:100},{name:'唯一性',max:100},{name:'及时性',max:100}],
+      axisName:{color:'#8892b0',fontSize:11},
+      splitArea:{areaStyle:{color:['rgba(0,212,255,0.02)','rgba(0,212,255,0.02)']}},
+      splitLine:{lineStyle:{color:'#1e2358'}},axisLine:{lineStyle:{color:'#1e2358'}}},
+    series:[{type:'radar',data:[{value:[rand(96,99),rand(96,99),rand(97,100),rand(94,99)],name:'数据质量',areaStyle:{color:'rgba(0,212,255,0.2)'},itemStyle:{color:'#00d4ff'},lineStyle:{color:'#00d4ff'}}]}]
+  });
+}
+
+function renderCompleteness(){
+  const c=initChart('chartCompleteness'); charts.comp=c;
+  const tables=['ods_vehicle','ods_status','ods_device','ods_alarm','dwd_vehicle','dwd_status','dwd_device','dwd_alarm'];
+  c.setOption({
+    tooltip:{trigger:'axis',backgroundColor:'#111640',borderColor:'#1e2358',textStyle:{color:'#ccd6f6'}},
+    grid:{left:90,right:30,top:10,bottom:30},
+    xAxis:{type:'value',min:90,max:100,axisLabel:{color:'#8892b0',formatter:'{value}%'},splitLine:{lineStyle:{color:'#121840'}}},
+    yAxis:{type:'category',data:tables,inverse:true,axisLabel:{color:'#ccd6f6',fontSize:10},axisLine:{lineStyle:{color:'#1e2358'}}},
+    series:[{type:'bar',data:tables.map(()=>rand(95,100)),
+      itemStyle:{color:params=>{const v=rand(95,100);return v>=99?'#00ff88':v>=97?'#00d4ff':'#ffa502'},borderRadius:[0,4,4,0]},
+      barWidth:14,label:{show:true,position:'right',color:'#ccd6f6',fontSize:10,formatter:'{c}%'},
+      markLine:{silent:true,data:[{xAxis:99,label:{formatter:'阈值99%',color:'#ffa502',fontSize:10},lineStyle:{color:'#ffa502',type:'dashed'}}]}]}]
+  });
+}
+
+function renderKafkaLag(){
+  const c=initChart('chartKafkaLag'); charts.lag=c;
+  const hours=['00:00','02:00','04:00','06:00','08:00','10:00','12:00','14:00','16:00','18:00','20:00','22:00'];
+  const lag=hours.map(()=>rand(500,9500));
+  c.setOption({
+    tooltip:{trigger:'axis',backgroundColor:'#111640',borderColor:'#1e2358',textStyle:{color:'#ccd6f6'}},
+    grid:{left:50,right:30,top:10,bottom:30},
+    xAxis:{type:'category',data:hours,axisLabel:{color:'#8892b0',fontSize:10},axisLine:{lineStyle:{color:'#1e2358'}}},
+    yAxis:{type:'value',name:'条',axisLabel:{color:'#8892b0'},splitLine:{lineStyle:{color:'#121840'}}},
+    series:[{type:'line',data:lag,smooth:true,itemStyle:{color:'#ffa502'},lineStyle:{width:2},areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(255,165,2,0.3)'},{offset:1,color:'rgba(255,165,2,0)'}]}},symbol:'circle',symbolSize:5,
+      markLine:{silent:true,data:[{yAxis:10000,label:{formatter:'告警线',color:'#ff4757',fontSize:10},lineStyle:{color:'#ff4757',type:'dashed'}}]}}]
+  });
+}
+
+function renderQualityTable(){
+  const checks=[
+    {item:'缺字段检测',table:'ods_vehicle_pass_di',type:'完整性',threshold:'99%',actual:rand(98,100)+'.'+rand(1,9)+'%'},
+    {item:'缺分区检测',table:'ods_traffic_status_di',type:'完整性',threshold:'99%',actual:rand(98,100)+'.'+rand(1,9)+'%'},
+    {item:'速度值域',table:'dwd_vehicle_pass_di',type:'准确性',threshold:'99%',actual:rand(97,100)+'.'+rand(1,9)+'%'},
+    {item:'拥堵等级',table:'dwd_traffic_status_di',type:'准确性',threshold:'99%',actual:rand(97,100)+'.'+rand(1,9)+'%'},
+    {item:'重复车辆记录',table:'dwd_vehicle_pass_di',type:'唯一性',threshold:'99.9%',actual:'99.'+rand(7,9)+'%'},
+    {item:'重复设备记录',table:'dwd_device_status_di',type:'唯一性',threshold:'99.9%',actual:'99.'+rand(6,9)+'%'},
+    {item:'Kafka延迟',table:'traffic_vehicle',type:'及时性',threshold:'<10000',actual:rand(500,8000)+'条'},
+    {item:'数据延迟',table:'ods_vehicle_pass_di',type:'及时性',threshold:'<30min',actual:rand(3,25)+'min'},
+  ];
+  document.querySelector('#tblQuality tbody').innerHTML=checks.map(c=>{
+    let status,scolor;
+    if(c.type==='完整性'){status=parseFloat(c.actual)>=99?'PASS':'FAIL';scolor=status==='PASS'?'#00ff88':'#ff4757'}
+    else if(c.type==='准确性'){status=parseFloat(c.actual)>=99?'PASS':'FAIL';scolor=status==='PASS'?'#00ff88':'#ff4757'}
+    else if(c.type==='唯一性'){status=parseFloat(c.actual)>=99.9?'PASS':'WARN';scolor=status==='PASS'?'#00ff88':'#ffa502'}
+    else {status=parseInt(c.actual)<10000?'PASS':'WARN';scolor=status==='PASS'?'#00ff88':'#ffa502'}
+    return `<tr><td>${c.item}</td><td>${c.table}</td><td>${c.type}</td><td>${c.threshold}</td><td>${c.actual}</td><td style="color:${scolor}">${status}</td></tr>`;
+  }).join('');
+}
+
+// ==================== 实时刷新 ====================
+function refreshRealtime(){
+  // 更新实时KPI
+  const elOnline=document.getElementById('kvOnline');
+  const elSpeed=document.getElementById('kvRTSpeed');
+  const elJam=document.getElementById('kvRTJam');
+  const elLatency=document.getElementById('kvLatency');
+  if(elOnline) elOnline.textContent=rand(8000,15000).toLocaleString();
+  if(elSpeed) elSpeed.textContent=rand(40,55)+' km/h';
+  if(elJam) elJam.textContent=rand(3,8)+' 条';
+  if(elLatency) elLatency.textContent=rand(1,4)+'s';
+
+  // 刷新实时图表
+  if(charts.rtFlow) renderRTFlow();
+  if(charts.rtSpeed) renderRTSpeed();
+  if(charts.rtJam) renderRTJamLevel();
+  renderRTJamRoadsTable();
+}
+
+// ==================== 初始化 ====================
+function initAll(){
+  // Tab 1
+  renderKPIOverview();
+  renderFlowTrend();
+  renderJamHeat();
+  renderTopJamRoads();
+  renderVehicleType();
+
+  // Tab 2
+  renderKPIRealtime();
+  renderRTFlow();
+  renderRTSpeed();
+  renderRTJamLevel();
+  renderRTJamRoadsTable();
+
+  // Tab 3
+  renderKPIDevice();
+  renderHealthScore();
+  renderOnlineRate();
+  renderMTBF();
+  renderOfflineTable();
+
+  // Tab 4
+  renderKPIQuality();
+  renderQualityScore();
+  renderCompleteness();
+  renderKafkaLag();
+  renderQualityTable();
+}
+
+initAll();
+setInterval(refreshRealtime,5000);
+</script>
+</body>
+</html>

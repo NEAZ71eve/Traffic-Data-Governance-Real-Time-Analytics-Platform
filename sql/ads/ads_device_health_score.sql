@@ -20,8 +20,8 @@ CREATE TABLE IF NOT EXISTS traffic_db.ads_device_health_score (
     recovery_rate         DECIMAL(5,2) COMMENT '告警恢复率(%)',
     online_score          DECIMAL(5,2) COMMENT '在线率得分(0-40)',
     resource_score        DECIMAL(5,2) COMMENT '资源使用得分(0-30)',
-    abnormal_score        DECIMAL(5,2) COMMENT '异常率得分(0-20)',
-    recovery_score        DECIMAL(5,2) COMMENT '恢复率得分(0-10)',
+    fault_score           DECIMAL(5,2) COMMENT '故障率得分(0-30)',
+    recovery_score        DECIMAL(5,2) COMMENT '恢复率得分(预留)',
     health_score          DECIMAL(5,2) COMMENT '健康度综合评分(0-100)',
     health_level          STRING      COMMENT '健康等级(EXCELLENT/GOOD/FAIR/POOR/CRITICAL)'
 )
@@ -39,11 +39,12 @@ TBLPROPERTIES (
 
 -- ============================================
 -- 每日ETL：设备健康度综合评分
--- 评分公式（满分100）：
---   在线率得分 = online_rate / 100 * 40
---   资源得分   = (1 - (avg_cpu + avg_memory) / 200) * 30
---   异常得分   = (1 - abnormal_rate / 100) * 20
---   恢复得分   = recovery_rate / 100 * 10
+-- 评分公式（满分100），对标设计规格：
+--   HealthScore = 0.4 × OnlineRate + 0.3 × (1 - FaultRate) + 0.3 × ResourceScore
+--   即：
+--     在线率得分 = online_rate / 100 * 40
+--     故障得分   = (1 - abnormalRate / 100) * 30
+--     资源得分   = max(0, (1 - (avg_cpu + avg_memory) / 200)) * 30
 -- ============================================
 SET hive.exec.dynamic.partition = true;
 SET hive.exec.dynamic.partition.mode = nonstrict;
@@ -55,7 +56,7 @@ SELECT
     d.device_name,
     d.device_type,
     d.road_id,
-    d.road_id AS area_id,  -- 通过道路关联区域
+    r.area_id AS area_id,  -- 通过 dim_road_zip 关联区域
     ROUND(dh.online_duration * 100.0 / NULLIF(dh.online_duration + dh.offline_count, 0), 2) AS online_rate,
     dh.avg_cpu_usage,
     dh.avg_memory_usage,
@@ -65,38 +66,33 @@ SELECT
     COALESCE(ad.recovery_rate, 100.00)                                          AS recovery_rate,
     ROUND(dh.online_duration * 100.0 / NULLIF(dh.online_duration + dh.offline_count, 0) / 100 * 40, 2) AS online_score,
     ROUND(GREATEST(0, (1 - (dh.avg_cpu_usage + dh.avg_memory_usage) / 200)) * 30, 2) AS resource_score,
-    ROUND(GREATEST(0, (1 - dh.abnormal_count * 1.0 / NULLIF(dh.abnormal_count + dh.warning_count + dh.normal_count, 0))) * 20, 2) AS abnormal_score,
-    ROUND(COALESCE(ad.recovery_rate, 100.00) / 100 * 10, 2)                     AS recovery_score,
+    ROUND(GREATEST(0, (1 - dh.abnormal_count * 1.0 / NULLIF(dh.abnormal_count + dh.warning_count + dh.normal_count, 0))) * 30, 2) AS fault_score,
+    NULL                                                                         AS recovery_score,
     ROUND(
         (dh.online_duration * 100.0 / NULLIF(dh.online_duration + dh.offline_count, 0) / 100 * 40)
       + (GREATEST(0, (1 - (dh.avg_cpu_usage + dh.avg_memory_usage) / 200)) * 30)
-      + (GREATEST(0, (1 - dh.abnormal_count * 1.0 / NULLIF(dh.abnormal_count + dh.warning_count + dh.normal_count, 0))) * 20)
-      + (COALESCE(ad.recovery_rate, 100.00) / 100 * 10)
+      + (GREATEST(0, (1 - dh.abnormal_count * 1.0 / NULLIF(dh.abnormal_count + dh.warning_count + dh.normal_count, 0))) * 30)
     , 2)                                                                         AS health_score,
     CASE
         WHEN ROUND(
             (dh.online_duration * 100.0 / NULLIF(dh.online_duration + dh.offline_count, 0) / 100 * 40)
           + (GREATEST(0, (1 - (dh.avg_cpu_usage + dh.avg_memory_usage) / 200)) * 30)
-          + (GREATEST(0, (1 - dh.abnormal_count * 1.0 / NULLIF(dh.abnormal_count + dh.warning_count + dh.normal_count, 0))) * 20)
-          + (COALESCE(ad.recovery_rate, 100.00) / 100 * 10)
+          + (GREATEST(0, (1 - dh.abnormal_count * 1.0 / NULLIF(dh.abnormal_count + dh.warning_count + dh.normal_count, 0))) * 30)
         , 2) >= 90 THEN 'EXCELLENT'
         WHEN ROUND(
             (dh.online_duration * 100.0 / NULLIF(dh.online_duration + dh.offline_count, 0) / 100 * 40)
           + (GREATEST(0, (1 - (dh.avg_cpu_usage + dh.avg_memory_usage) / 200)) * 30)
-          + (GREATEST(0, (1 - dh.abnormal_count * 1.0 / NULLIF(dh.abnormal_count + dh.warning_count + dh.normal_count, 0))) * 20)
-          + (COALESCE(ad.recovery_rate, 100.00) / 100 * 10)
+          + (GREATEST(0, (1 - dh.abnormal_count * 1.0 / NULLIF(dh.abnormal_count + dh.warning_count + dh.normal_count, 0))) * 30)
         , 2) >= 75 THEN 'GOOD'
         WHEN ROUND(
             (dh.online_duration * 100.0 / NULLIF(dh.online_duration + dh.offline_count, 0) / 100 * 40)
           + (GREATEST(0, (1 - (dh.avg_cpu_usage + dh.avg_memory_usage) / 200)) * 30)
-          + (GREATEST(0, (1 - dh.abnormal_count * 1.0 / NULLIF(dh.abnormal_count + dh.warning_count + dh.normal_count, 0))) * 20)
-          + (COALESCE(ad.recovery_rate, 100.00) / 100 * 10)
+          + (GREATEST(0, (1 - dh.abnormal_count * 1.0 / NULLIF(dh.abnormal_count + dh.warning_count + dh.normal_count, 0))) * 30)
         , 2) >= 60 THEN 'FAIR'
         WHEN ROUND(
             (dh.online_duration * 100.0 / NULLIF(dh.online_duration + dh.offline_count, 0) / 100 * 40)
           + (GREATEST(0, (1 - (dh.avg_cpu_usage + dh.avg_memory_usage) / 200)) * 30)
-          + (GREATEST(0, (1 - dh.abnormal_count * 1.0 / NULLIF(dh.abnormal_count + dh.warning_count + dh.normal_count, 0))) * 20)
-          + (COALESCE(ad.recovery_rate, 100.00) / 100 * 10)
+          + (GREATEST(0, (1 - dh.abnormal_count * 1.0 / NULLIF(dh.abnormal_count + dh.warning_count + dh.normal_count, 0))) * 30)
         , 2) >= 40 THEN 'POOR'
         ELSE 'CRITICAL'
     END                                                                         AS health_level,
@@ -106,6 +102,10 @@ JOIN traffic_db.dim_device_zip d
     ON dh.device_id = d.device_id
    AND d.is_current = 'Y'
    AND d.dt = '${date}'
+JOIN traffic_db.dim_road_zip r
+    ON d.road_id = r.road_id
+   AND r.is_current = 'Y'
+   AND r.dt = '${date}'
 LEFT JOIN (
     SELECT
         device_id,
