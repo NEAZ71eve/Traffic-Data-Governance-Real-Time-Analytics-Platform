@@ -1,0 +1,56 @@
+{
+  "database": "traffic_db",
+  "hdfs_base_path": "/user/hive/warehouse/traffic_db.db",
+  "compression": "SNAPPY",
+  "file_format": "ORC",
+  "dynamic_partition": true,
+  "tez_enabled": true,
+  "optimizer_enabled": true,
+  "configuration": {
+    "hive.exec.dynamic.partition.mode": "nonstrict",
+    "hive.exec.max.dynamic.partitions": 1000,
+    "hive.exec.max.dynamic.partitions.pernode": 100,
+    "hive.auto.convert.join": true,
+    "hive.auto.convert.join.noconditionaltask.size": 10000000,
+    "hive.optimize.skewjoin": true,
+    "hive.skewjoin.key": "100000",
+    "hive.exec.compress.output": true,
+    "mapreduce.output.fileoutputformat.compress": true,
+    "mapreduce.output.fileoutputformat.compress.codec": "org.apache.hadoop.io.compress.SnappyCodec",
+    "hive.exec.orc.default.block.size": "268435456",
+    "hive.exec.orc.default.row.index.stride": "10000",
+    "hive.fetch.task.conversion": "more"
+  },
+  "tables": {
+    "ods": [
+      "ods_vehicle_pass_di",
+      "ods_traffic_status_di",
+      "ods_device_status_di",
+      "ods_alarm_log_di"
+    ],
+    "dim": [
+      "dim_road_zip",
+      "dim_device_zip",
+      "dim_time",
+      "dim_area"
+    ],
+    "dwd": [
+      "dwd_vehicle_pass_di",
+      "dwd_traffic_status_di",
+      "dwd_device_status_di",
+      "dwd_alarm_log_di"
+    ],
+    "dws": [
+      "dws_road_hour_flow",
+      "dws_area_jam_hour",
+      "dws_device_health_day",
+      "dws_alarm_day"
+    ],
+    "ads": [
+      "ads_traffic_operation",
+      "ads_top_jam_roads",
+      "ads_device_health_score",
+      "ads_device_mtbf_mttr"
+    ]
+  }
+}

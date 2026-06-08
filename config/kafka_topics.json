@@ -1,0 +1,54 @@
+{
+  "topics": [
+    {
+      "name": "traffic_vehicle",
+      "partitions": 8,
+      "replication_factor": 3,
+      "description": "车辆通行数据",
+      "retention_ms": 86400000
+    },
+    {
+      "name": "traffic_status",
+      "partitions": 4,
+      "replication_factor": 3,
+      "description": "路况监测数据",
+      "retention_ms": 86400000
+    },
+    {
+      "name": "device_status",
+      "partitions": 4,
+      "replication_factor": 3,
+      "description": "设备状态数据",
+      "retention_ms": 86400000
+    },
+    {
+      "name": "device_alarm",
+      "partitions": 4,
+      "replication_factor": 3,
+      "description": "故障告警数据",
+      "retention_ms": 604800000
+    }
+  ],
+  "consumer_groups": [
+    {
+      "name": "traffic_vehicle_group",
+      "topic": "traffic_vehicle",
+      "description": "车辆数据消费者组"
+    },
+    {
+      "name": "traffic_status_group",
+      "topic": "traffic_status",
+      "description": "路况数据消费者组"
+    },
+    {
+      "name": "device_status_group",
+      "topic": "device_status",
+      "description": "设备状态消费者组"
+    },
+    {
+      "name": "device_alarm_group",
+      "topic": "device_alarm",
+      "description": "告警数据消费者组"
+    }
+  ]
+}

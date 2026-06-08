@@ -1,0 +1,136 @@
+{
+  "project": "traffic-data-platform",
+  "workflow": "traffic_etl_workflow",
+  "schedule": "0 0 1 * * ?",
+  "tasks": [
+    {
+      "name": "ods_vehicle_pass_di",
+      "type": "HQL",
+      "sql_file": "/dolphinscheduler/resources/sql/ods/ods_vehicle_pass_di.sql",
+      "params": {"date": "${system.biz.date}"},
+      "depends": []
+    },
+    {
+      "name": "ods_traffic_status_di",
+      "type": "HQL",
+      "sql_file": "/dolphinscheduler/resources/sql/ods/ods_traffic_status_di.sql",
+      "params": {"date": "${system.biz.date}"},
+      "depends": []
+    },
+    {
+      "name": "ods_device_status_di",
+      "type": "HQL",
+      "sql_file": "/dolphinscheduler/resources/sql/ods/ods_device_status_di.sql",
+      "params": {"date": "${system.biz.date}"},
+      "depends": []
+    },
+    {
+      "name": "ods_alarm_log_di",
+      "type": "HQL",
+      "sql_file": "/dolphinscheduler/resources/sql/ods/ods_alarm_log_di.sql",
+      "params": {"date": "${system.biz.date}"},
+      "depends": []
+    },
+    {
+      "name": "dwd_vehicle_pass_di",
+      "type": "HQL",
+      "sql_file": "/dolphinscheduler/resources/sql/dwd/dwd_vehicle_pass_di.sql",
+      "params": {"date": "${system.biz.date}"},
+      "depends": ["ods_vehicle_pass_di"]
+    },
+    {
+      "name": "dwd_traffic_status_di",
+      "type": "HQL",
+      "sql_file": "/dolphinscheduler/resources/sql/dwd/dwd_traffic_status_di.sql",
+      "params": {"date": "${system.biz.date}"},
+      "depends": ["ods_traffic_status_di"]
+    },
+    {
+      "name": "dwd_device_status_di",
+      "type": "HQL",
+      "sql_file": "/dolphinscheduler/resources/sql/dwd/dwd_device_status_di.sql",
+      "params": {"date": "${system.biz.date}"},
+      "depends": ["ods_device_status_di"]
+    },
+    {
+      "name": "dwd_alarm_log_di",
+      "type": "HQL",
+      "sql_file": "/dolphinscheduler/resources/sql/dwd/dwd_alarm_log_di.sql",
+      "params": {"date": "${system.biz.date}"},
+      "depends": ["ods_alarm_log_di"]
+    },
+    {
+      "name": "dws_road_hour_flow",
+      "type": "HQL",
+      "sql_file": "/dolphinscheduler/resources/sql/dws/dws_road_hour_flow.sql",
+      "params": {"date": "${system.biz.date}"},
+      "depends": ["dwd_vehicle_pass_di"]
+    },
+    {
+      "name": "dws_area_jam_hour",
+      "type": "HQL",
+      "sql_file": "/dolphinscheduler/resources/sql/dws/dws_area_jam_hour.sql",
+      "params": {"date": "${system.biz.date}"},
+      "depends": ["dwd_traffic_status_di"]
+    },
+    {
+      "name": "dws_device_health_day",
+      "type": "HQL",
+      "sql_file": "/dolphinscheduler/resources/sql/dws/dws_device_health_day.sql",
+      "params": {"date": "${system.biz.date}"},
+      "depends": ["dwd_device_status_di"]
+    },
+    {
+      "name": "dws_alarm_day",
+      "type": "HQL",
+      "sql_file": "/dolphinscheduler/resources/sql/dws/dws_alarm_day.sql",
+      "params": {"date": "${system.biz.date}"},
+      "depends": ["dwd_alarm_log_di"]
+    },
+    {
+      "name": "ads_traffic_operation",
+      "type": "HQL",
+      "sql_file": "/dolphinscheduler/resources/sql/ads/ads_traffic_operation.sql",
+      "params": {"date": "${system.biz.date}"},
+      "depends": ["dws_road_hour_flow", "dws_area_jam_hour"]
+    },
+    {
+      "name": "ads_top_jam_roads",
+      "type": "HQL",
+      "sql_file": "/dolphinscheduler/resources/sql/ads/ads_top_jam_roads.sql",
+      "params": {"date": "${system.biz.date}"},
+      "depends": ["dws_area_jam_hour"]
+    },
+    {
+      "name": "ads_device_health_score",
+      "type": "HQL",
+      "sql_file": "/dolphinscheduler/resources/sql/ads/ads_device_health_score.sql",
+      "params": {"date": "${system.biz.date}"},
+      "depends": ["dws_device_health_day", "dws_alarm_day"]
+    },
+    {
+      "name": "ads_device_mtbf_mttr",
+      "type": "HQL",
+      "sql_file": "/dolphinscheduler/resources/sql/ads/ads_device_mtbf_mttr.sql",
+      "params": {"date": "${system.biz.date}"},
+      "depends": ["dws_alarm_day"]
+    },
+    {
+      "name": "data_quality_check",
+      "type": "PYTHON",
+      "python_file": "/dolphinscheduler/resources/python/data_quality_monitor.py",
+      "params": {"date": "${system.biz.date}"},
+      "depends": ["ads_traffic_operation", "ads_top_jam_roads", "ads_device_health_score", "ads_device_mtbf_mttr"]
+    }
+  ],
+  "alert": {
+    "type": "EMAIL",
+    "recipients": ["data-team@company.com"],
+    "conditions": ["FAILURE", "TIMEOUT"]
+  },
+  "retry": {
+    "times": 3,
+    "interval": 60,
+    "strategy": "FIXED"
+  }
+}
