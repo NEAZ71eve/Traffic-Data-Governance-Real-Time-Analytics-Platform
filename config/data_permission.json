@@ -1,0 +1,91 @@
+{
+  "data_permission": {
+    "hive": {
+      "policy_provider": "Apache Ranger",
+      "database": "traffic_db",
+      "policy_groups": [
+        {
+          "role": "data_developer",
+          "description": "数据开发工程师",
+          "permissions": {
+            "ods_*": "SELECT",
+            "dim_*": "SELECT, INSERT",
+            "dwd_*": "SELECT, INSERT, ALTER",
+            "dws_*": "SELECT, INSERT, ALTER",
+            "ads_*": "SELECT, INSERT, ALTER"
+          }
+        },
+        {
+          "role": "ops_engineer",
+          "description": "运维工程师（只看设备相关）",
+          "permissions": {
+            "ods_device_status_di": "SELECT",
+            "dwd_device_status_di": "SELECT",
+            "dwd_alarm_log_di": "SELECT",
+            "dws_device_health_day": "SELECT",
+            "dws_alarm_day": "SELECT",
+            "ads_device_health_score": "SELECT",
+            "ads_device_mtbf_mttr": "SELECT",
+            "dim_device_zip": "SELECT"
+          }
+        },
+        {
+          "role": "traffic_analyst",
+          "description": "交通运营分析师",
+          "permissions": {
+            "ads_traffic_operation": "SELECT",
+            "ads_top_jam_roads": "SELECT",
+            "*_road_*": "SELECT",
+            "dim_road_zip": "SELECT",
+            "dim_area": "SELECT"
+          }
+        },
+        {
+          "role": "decision_maker",
+          "description": "管理层决策看板",
+          "permissions": {
+            "ads_*": "SELECT"
+          }
+        }
+      ]
+    },
+    "superset": {
+      "dashboard_permissions": [
+        {
+          "dashboard": "设备运维监控看板",
+          "url": "/superset/dashboard/device-ops/",
+          "visible_roles": ["ops_engineer", "data_developer", "decision_maker"],
+          "refresh_interval_seconds": 30
+        },
+        {
+          "dashboard": "交通运营实时看板",
+          "url": "/superset/dashboard/traffic-ops/",
+          "visible_roles": ["traffic_analyst", "data_developer", "decision_maker"],
+          "refresh_interval_seconds": 60,
+          "data_source": "Redis"
+        },
+        {
+          "dashboard": "交通治理决策看板",
+          "url": "/superset/dashboard/governance/",
+          "visible_roles": ["decision_maker", "data_developer"],
+          "refresh_interval_seconds": 300
+        },
+        {
+          "dashboard": "数据质量监控看板",
+          "url": "/superset/dashboard/data-quality/",
+          "visible_roles": ["data_developer"],
+          "refresh_interval_seconds": 600
+        }
+      ]
+    },
+    "kafka": {
+      "acl_enabled": false,
+      "consumer_groups": [
+        {"group": "traffic_vehicle_group", "allowed_users": ["flink", "data_developer"]},
+        {"group": "traffic_status_group", "allowed_users": ["flink", "data_developer"]},
+        {"group": "device_status_group", "allowed_users": ["flink", "ops_engineer"]},
+        {"group": "device_alarm_group", "allowed_users": ["flink", "ops_engineer"]}
+      ]
+    }
+  }
+}

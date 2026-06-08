@@ -1,0 +1,107 @@
+{
+  "traffic_metrics": {
+    "jam_level": {
+      "level_1": {
+        "name": "畅通",
+        "speed_range": ">=40 km/h",
+        "congestion_rate": "<=15%",
+        "traffic_flow": "<500 辆/小时",
+        "description": "道路通行顺畅，车辆可自由行驶"
+      },
+      "level_2": {
+        "name": "基本畅通",
+        "speed_range": "30-40 km/h",
+        "congestion_rate": "15%-30%",
+        "traffic_flow": "500-1000 辆/小时",
+        "description": "道路通行正常，偶有缓行"
+      },
+      "level_3": {
+        "name": "轻度拥堵",
+        "speed_range": "20-30 km/h",
+        "congestion_rate": "30%-50%",
+        "traffic_flow": "1000-1500 辆/小时",
+        "description": "出现排队缓行，建议分流"
+      },
+      "level_4": {
+        "name": "中度拥堵",
+        "speed_range": "10-20 km/h",
+        "congestion_rate": "50%-75%",
+        "traffic_flow": "1500-2000 辆/小时",
+        "description": "明显拥堵，需限流引导"
+      },
+      "level_5": {
+        "name": "严重拥堵",
+        "speed_range": "<10 km/h",
+        "congestion_rate": ">75%",
+        "traffic_flow": ">2000 辆/小时",
+        "description": "严重拥堵，需启动交通管制预案",
+        "alert_action": "推送交通管控部门，建议启动分流方案"
+      }
+    },
+    "peak_period": {
+      "morning_peak": {"hours": "7:00-9:00", "description": "早高峰"},
+      "evening_peak": {"hours": "17:00-19:00", "description": "晚高峰"},
+      "day_normal": {"hours": "6:00-22:00(不含高峰)", "description": "日间平峰"},
+      "night_normal": {"hours": "22:00-6:00", "description": "夜间低峰"}
+    }
+  },
+  "device_health": {
+    "health_score": {
+      "EXCELLENT": {"range": "90-100", "action": "正常运行，无需关注"},
+      "GOOD": {"range": "75-89", "action": "正常运行，定期巡检"},
+      "FAIR": {"range": "60-74", "action": "存在轻度风险，建议纳入巡检计划"},
+      "POOR": {"range": "40-59", "action": "存在中高风险，触发二级告警，推送运维团队"},
+      "CRITICAL": {"range": "0-39", "action": "高危设备，触发一级告警，立即生成运维工单"}
+    },
+    "alert_levels": {
+      "CRITICAL": {
+        "description": "一级告警：设备即将或已经故障，影响交通数据采集",
+        "score_threshold": "<60",
+        "notify": ["运维主管", "值班工程师"],
+        "channels": ["电话", "短信", "钉钉@所有人"],
+        "auto_create_ticket": true,
+        "escalation_minutes": 15
+      },
+      "MAJOR": {
+        "description": "二级告警：设备指标异常，可能影响数据质量",
+        "score_threshold": "60-74",
+        "notify": ["运维工程师"],
+        "channels": ["钉钉群消息", "邮件"],
+        "auto_create_ticket": false,
+        "escalation_minutes": 60
+      },
+      "MINOR": {
+        "description": "三级告警：设备轻度异常，纳入监控观察",
+        "score_threshold": "75-89",
+        "notify": ["运维工程师"],
+        "channels": ["邮件周报"],
+        "auto_create_ticket": false,
+        "escalation_minutes": null
+      }
+    }
+  },
+  "traffic_alert": {
+    "congestion_threshold": {
+      "area_jam_rate": {
+        "warning": "区域拥堵率 > 40%",
+        "critical": "区域拥堵率 > 60%",
+        "action": "推送交通管控部门，建议启动区域分流"
+      },
+      "single_road_jam": {
+        "warning": "单条道路拥堵等级 = 5 持续 > 30分钟",
+        "critical": "单条道路拥堵等级 = 5 持续 > 60分钟",
+        "action": "推送交警现场疏导"
+      }
+    },
+    "flow_anomaly": {
+      "definition": "当前小时车流量 > 近7天同期均值 * 2",
+      "action": "可能发生交通事故或大型活动，推送运维确认"
+    }
+  },
+  "data_quality": {
+    "completeness": {"pass_threshold": 99.0, "warn_threshold": 99.5},
+    "uniqueness": {"pass_threshold": 99.9, "warn_threshold": 99.99},
+    "validity": {"pass_threshold": 99.0, "warn_threshold": 99.5},
+    "timeliness": {"kafka_lag_warn": 1000, "kafka_lag_critical": 10000}
+  }
+}

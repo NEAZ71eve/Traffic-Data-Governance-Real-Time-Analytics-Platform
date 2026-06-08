@@ -2,135 +2,223 @@
   "project": "traffic-data-platform",
   "workflow": "traffic_etl_workflow",
   "schedule": "0 0 1 * * ?",
+  "data_replay": {
+    "enabled": true,
+    "max_replay_days": 90,
+    "partition_retention_days": 90,
+    "replay_mode": "PARTITION_OVERWRITE",
+    "replay_steps": [
+      {
+        "step": 1,
+        "name": "检查目标分区是否存在",
+        "action": "SHOW PARTITIONS {table} PARTITION(dt='{date}')",
+        "auto_backup": true
+      },
+      {
+        "step": 2,
+        "name": "删除目标分区数据",
+        "action": "ALTER TABLE {table} DROP IF EXISTS PARTITION(dt='{date}')",
+        "confirm_required": true
+      },
+      {
+        "step": 3,
+        "name": "按依赖顺序重跑",
+        "layers": ["ods", "dim", "dwd", "dws", "ads"],
+        "parallel_within_layer": true
+      },
+      {
+        "step": 4,
+        "name": "数据质量校验",
+        "action": "python python/data_quality_monitor.py --date {date}",
+        "on_failure": "RETRY_OR_ALERT"
+      }
+    ]
+  },
   "tasks": [
     {
       "name": "ods_vehicle_pass_di",
       "type": "HQL",
       "sql_file": "/dolphinscheduler/resources/sql/ods/ods_vehicle_pass_di.sql",
       "params": {"date": "${system.biz.date}"},
-      "depends": []
+      "depends": [],
+      "retry": {"times": 3, "interval": 60}
     },
     {
       "name": "ods_traffic_status_di",
       "type": "HQL",
       "sql_file": "/dolphinscheduler/resources/sql/ods/ods_traffic_status_di.sql",
       "params": {"date": "${system.biz.date}"},
-      "depends": []
+      "depends": [],
+      "retry": {"times": 3, "interval": 60}
     },
     {
       "name": "ods_device_status_di",
       "type": "HQL",
       "sql_file": "/dolphinscheduler/resources/sql/ods/ods_device_status_di.sql",
       "params": {"date": "${system.biz.date}"},
-      "depends": []
+      "depends": [],
+      "retry": {"times": 3, "interval": 60}
     },
     {
       "name": "ods_alarm_log_di",
       "type": "HQL",
       "sql_file": "/dolphinscheduler/resources/sql/ods/ods_alarm_log_di.sql",
       "params": {"date": "${system.biz.date}"},
-      "depends": []
+      "depends": [],
+      "retry": {"times": 3, "interval": 60}
+    },
+    {
+      "name": "dim_road_zip_update",
+      "type": "HQL",
+      "sql_file": "/dolphinscheduler/resources/sql/dim/dim_road_zip.sql",
+      "params": {"date": "${system.biz.date}"},
+      "depends": [],
+      "retry": {"times": 3, "interval": 60}
+    },
+    {
+      "name": "dim_device_zip_update",
+      "type": "HQL",
+      "sql_file": "/dolphinscheduler/resources/sql/dim/dim_device_zip.sql",
+      "params": {"date": "${system.biz.date}"},
+      "depends": [],
+      "retry": {"times": 3, "interval": 60}
     },
     {
       "name": "dwd_vehicle_pass_di",
       "type": "HQL",
       "sql_file": "/dolphinscheduler/resources/sql/dwd/dwd_vehicle_pass_di.sql",
       "params": {"date": "${system.biz.date}"},
-      "depends": ["ods_vehicle_pass_di"]
+      "depends": ["ods_vehicle_pass_di"],
+      "retry": {"times": 3, "interval": 60}
     },
     {
       "name": "dwd_traffic_status_di",
       "type": "HQL",
       "sql_file": "/dolphinscheduler/resources/sql/dwd/dwd_traffic_status_di.sql",
       "params": {"date": "${system.biz.date}"},
-      "depends": ["ods_traffic_status_di"]
+      "depends": ["ods_traffic_status_di"],
+      "retry": {"times": 3, "interval": 60}
     },
     {
       "name": "dwd_device_status_di",
       "type": "HQL",
       "sql_file": "/dolphinscheduler/resources/sql/dwd/dwd_device_status_di.sql",
       "params": {"date": "${system.biz.date}"},
-      "depends": ["ods_device_status_di"]
+      "depends": ["ods_device_status_di"],
+      "retry": {"times": 3, "interval": 60}
     },
     {
       "name": "dwd_alarm_log_di",
       "type": "HQL",
       "sql_file": "/dolphinscheduler/resources/sql/dwd/dwd_alarm_log_di.sql",
       "params": {"date": "${system.biz.date}"},
-      "depends": ["ods_alarm_log_di"]
+      "depends": ["ods_alarm_log_di"],
+      "retry": {"times": 3, "interval": 60}
     },
     {
       "name": "dws_road_hour_flow",
       "type": "HQL",
       "sql_file": "/dolphinscheduler/resources/sql/dws/dws_road_hour_flow.sql",
       "params": {"date": "${system.biz.date}"},
-      "depends": ["dwd_vehicle_pass_di"]
+      "depends": ["dwd_vehicle_pass_di"],
+      "retry": {"times": 3, "interval": 60}
     },
     {
       "name": "dws_area_jam_hour",
       "type": "HQL",
       "sql_file": "/dolphinscheduler/resources/sql/dws/dws_area_jam_hour.sql",
       "params": {"date": "${system.biz.date}"},
-      "depends": ["dwd_traffic_status_di"]
+      "depends": ["dwd_traffic_status_di", "dim_road_zip_update"],
+      "retry": {"times": 3, "interval": 60}
     },
     {
       "name": "dws_device_health_day",
       "type": "HQL",
       "sql_file": "/dolphinscheduler/resources/sql/dws/dws_device_health_day.sql",
       "params": {"date": "${system.biz.date}"},
-      "depends": ["dwd_device_status_di"]
+      "depends": ["dwd_device_status_di"],
+      "retry": {"times": 3, "interval": 60}
     },
     {
       "name": "dws_alarm_day",
       "type": "HQL",
       "sql_file": "/dolphinscheduler/resources/sql/dws/dws_alarm_day.sql",
       "params": {"date": "${system.biz.date}"},
-      "depends": ["dwd_alarm_log_di"]
+      "depends": ["dwd_alarm_log_di"],
+      "retry": {"times": 3, "interval": 60}
     },
     {
       "name": "ads_traffic_operation",
       "type": "HQL",
       "sql_file": "/dolphinscheduler/resources/sql/ads/ads_traffic_operation.sql",
       "params": {"date": "${system.biz.date}"},
-      "depends": ["dws_road_hour_flow", "dws_area_jam_hour"]
+      "depends": ["dws_road_hour_flow", "dws_area_jam_hour"],
+      "retry": {"times": 3, "interval": 60}
     },
     {
       "name": "ads_top_jam_roads",
       "type": "HQL",
       "sql_file": "/dolphinscheduler/resources/sql/ads/ads_top_jam_roads.sql",
       "params": {"date": "${system.biz.date}"},
-      "depends": ["dws_area_jam_hour"]
+      "depends": ["dws_area_jam_hour"],
+      "retry": {"times": 3, "interval": 60}
     },
     {
       "name": "ads_device_health_score",
       "type": "HQL",
       "sql_file": "/dolphinscheduler/resources/sql/ads/ads_device_health_score.sql",
       "params": {"date": "${system.biz.date}"},
-      "depends": ["dws_device_health_day", "dws_alarm_day"]
+      "depends": ["dws_device_health_day", "dws_alarm_day", "dim_device_zip_update"],
+      "retry": {"times": 3, "interval": 60}
     },
     {
       "name": "ads_device_mtbf_mttr",
       "type": "HQL",
       "sql_file": "/dolphinscheduler/resources/sql/ads/ads_device_mtbf_mttr.sql",
       "params": {"date": "${system.biz.date}"},
-      "depends": ["dws_alarm_day"]
+      "depends": ["dws_alarm_day", "dim_device_zip_update"],
+      "retry": {"times": 3, "interval": 60}
     },
     {
       "name": "data_quality_check",
       "type": "PYTHON",
       "python_file": "/dolphinscheduler/resources/python/data_quality_monitor.py",
       "params": {"date": "${system.biz.date}"},
-      "depends": ["ads_traffic_operation", "ads_top_jam_roads", "ads_device_health_score", "ads_device_mtbf_mttr"]
+      "depends": [
+        "ads_traffic_operation", "ads_top_jam_roads",
+        "ads_device_health_score", "ads_device_mtbf_mttr"
+      ],
+      "retry": {"times": 2, "interval": 30}
+    },
+    {
+      "name": "partition_cleanup",
+      "type": "HQL",
+      "description": "清理90天前的过期分区",
+      "sql_content": "ALTER TABLE {table} DROP IF EXISTS PARTITION(dt < DATE_SUB('${system.biz.date}', 90))",
+      "depends": ["data_quality_check"],
+      "retry": {"times": 1, "interval": 0}
     }
   ],
   "alert": {
     "type": "EMAIL",
     "recipients": ["data-team@company.com"],
-    "conditions": ["FAILURE", "TIMEOUT"]
+    "conditions": ["FAILURE", "TIMEOUT"],
+    "additional_config": {
+      "dingtalk_webhook": "https://oapi.dingtalk.com/robot/send?access_token=TOKEN",
+      "oncall_escalation": true,
+      "escalation_timeout_minutes": 30
+    }
   },
   "retry": {
     "times": 3,
     "interval": 60,
     "strategy": "FIXED"
+  },
+  "timeout": {
+    "ods_tasks": 30,
+    "dwd_tasks": 60,
+    "dws_tasks": 90,
+    "ads_tasks": 120,
+    "quality_check": 30
   }
 }
