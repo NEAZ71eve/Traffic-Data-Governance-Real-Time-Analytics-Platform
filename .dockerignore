@@ -1,20 +1,21 @@
-# Binary databases
+# Docker 构建忽略
+# Databases
 *.db
 *.sqlite
+*/superset.db
 
 # Python
 __pycache__/
 *.pyc
+*.pyo
+.pytest_cache/
 
-# Superset
-.superset/
+# Git
+.git/
+.gitignore
 
 # Demo output
 demo_output/
-
-# IDE
-.vscode/
-.idea/
 
 # Temp scripts
 check_state.py
@@ -29,6 +30,9 @@ superset_api_setup.py
 # OS
 .DS_Store
 Thumbs.db
+*/.trae/
 
-# Docker (keep compose files, ignore volumes)
-docker-compose.override.yml
+# Docker
+docker-compose.yml
+Dockerfile*
+.dockerignore

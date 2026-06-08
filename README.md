@@ -92,6 +92,19 @@ Traffic-Data-Governance-Real-Time-Analytics-Platform/
 │   ├── BI_DASHBOARDS.md                  #   Superset看板设计
 │   └── AI_MODULE_DESIGN.md               #   AI模块选型与边界
 │
+├── pseudo_distributed/                   # 伪分布式本地运行 (单机验证)
+│   ├── setup_all.py                      #   一键安装 Kafka+Flink+Redis
+│   ├── start_all.py                      #   一键启动所有服务
+│   ├── stop_all.py                       #   一键停止所有服务
+│   ├── test_kafka.py                     #   Kafka 生产/消费验证
+│   ├── test_flink.py                     #   Flink Standalone 集群验证
+│   ├── test_redis.py                     #   Redis 读写验证
+│   ├── test_hive_sql.py                  #   SQLite 执行 20+ SQL 查询
+│   ├── test_hdfs.py                      #   本地 FS 模拟 HDFS 5层分区
+│   ├── test_scheduler.py                 #   轻量调度器 (14 任务 DAG)
+│   └── test_pipeline.py                  #   端到端全链路测试 (7/7 PASS)
+│
+├── dashboard_app.py                      # Flask 统一仪表盘 (6 Tab, 零CDN)
 ├── demo_full_pipeline.py                 # 全流程模拟演示 (零依赖)
 └── README.md                             # 本文档
 ```
@@ -195,6 +208,110 @@ flink run -c com.traffic.flink.TrafficVehicleCount target/traffic-flink-1.0.jar
 python python/data_quality_monitor.py
 ```
 
+### 伪分布式本地运行 (单机可跑)
+
+> **不需要集群！一台 Windows 机器就能分组件验证核心链路。**
+
+**架构方案**：WSL Ubuntu 跑 Kafka + Redis，Windows 原生跑 Flink，SQLite 替代 Hive，本地文件系统替代 HDFS，Python APScheduler 替代 DolphinScheduler。
+
+```bash
+cd pseudo_distributed
+
+# 1. 安装 (首次)
+python setup_all.py
+
+# 2. 启动所有服务
+python start_all.py
+
+# 3. 逐组件测试
+python test_kafka.py      # 真实 Kafka 生产30条→消费验证
+python test_flink.py      # Flink Standalone 集群状态+WebUI
+python test_redis.py      # Redis HSET/Pipeline/PubSub
+python test_hive_sql.py   # SQLite 执行20+条SQL，验证13张表
+python test_hdfs.py       # 本地FS模拟5层分区写入+完整性校验
+python test_scheduler.py  # 14个ETL任务DAG+依赖检查
+
+# 4. 端到端全链路
+python test_pipeline.py   # 传感器→Kafka→清洗→Redis(实时)→SQLite(离线)
+                          # 输出: 7/7 PASS
+```
+
+**组件对照表**：
+
+| 生产组件 | 伪分布式方案 | 端口 | 验证方式 |
+|---------|------------|------|---------|
+| Kafka | WSL Kafka 3.7 (KRaft单节点) | 9092 | `test_kafka.py` produce→consume |
+| Flink | Windows Flink 1.18 Standalone | 8081 | WebUI + `test_flink.py` |
+| Redis | WSL Redis 7.0 | 6379 | `test_redis.py` HSET/PubSub |
+| HDFS | 本地 `data/hdfs/` 分区目录 | - | `test_hdfs.py` 写入+校验 |
+| Hive | SQLite `traffic_data.db` | - | `test_hive_sql.py` 20+ SQL |
+| DolphinScheduler | `test_scheduler.py` | - | 14 任务 DAG 依赖检查 |
+| Superset | `dashboard_app.py` (Flask) | 8088 | 6 Tab 统一仪表盘 |
+
+**已验证**：`test_pipeline.py` 全链路 **7/7 PASS** (Kafka离线模式→Redis→SQLite→查询验证)
+
+### Docker 一键部署 (4 容器编排)
+
+> **一条命令启动全部组件，真 Kafka / 真 Flink / 真 Redis**
+
+```bash
+# 1. 构建 & 启动
+make up
+
+# 或手动:
+docker compose up -d
+
+# 2. 查看状态
+make status
+
+# 3. 访问
+#  仪表盘: http://localhost:8088
+#  Flink:   http://localhost:8081
+#  Kafka:   localhost:9092
+#  Redis:   localhost:6379
+
+# 4. 运行演示
+make demo         # 8阶段全流程演示
+make test         # 伪分布式测试套件
+make test-all     # 含 Kafka/Redis 真实链路测试
+make logs         # 查看日志
+make clean        # 停止并清理
+```
+
+**容器架构**：
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Docker Network                        │
+│                                                         │
+│  ┌──────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │  kafka   │  │ flink-jm     │  │ flink-tm     │      │
+│  │  KRaft   │  │  :8081       │  │  TaskManager │      │
+│  │  :9092   │  │  JobManager  │──│  4 slots     │      │
+│  └──┬───────┘  └──────────────┘  └──────────────┘      │
+│     │                                                   │
+│     │   ┌──────────┐   ┌──────────────────────────┐     │
+│     └───│  redis   │   │  app (Python:3.12)        │     │
+│         │  :6379   │   │  dashboard :8088          │     │
+│         └──────────┘   │  ETL / 质量监控 / 血缘     │     │
+│                        │  SQLite (Hive替代)         │     │
+│                        └──────────────────────────┘     │
+└─────────────────────────────────────────────────────────┘
+```
+
+| 容器 | 镜像 | 端口 | 内存 |
+|------|------|------|------|
+| **kafka** | bitnami/kafka:3.7 | 9092 | ~512MB |
+| **flink-jobmanager** | flink:1.18-scala_2.12 | 8081 | ~512MB |
+| **flink-taskmanager** | flink:1.18-scala_2.12 | - | ~1GB |
+| **redis** | redis:7-alpine | 6379 | ~128MB |
+| **app** | 自定义 Python:3.12 | 8088 | ~256MB |
+| **总计** | - | - | **~2.5GB** |
+
+
+
+
+
 ---
 
 ## 量化成果
@@ -220,6 +337,7 @@ python python/data_quality_monitor.py
 | [运维操作手册](docs/RUNBOOK.md) | 初次部署 / 组件启停 / 日常巡检 / 故障排查 / 容灾降级 / 备份恢复 / 性能调优 / 值班Checklist |
 | [BI看板设计](docs/BI_DASHBOARDS.md) | 4套Superset看板 / 24个图表SQL / 告警联动 / 部署配置 |
 | [AI模块设计](docs/AI_MODULE_DESIGN.md) | 技术选型 / 评估指标 / 安全边界 / 异常回退 |
+| [伪分布式部署](pseudo_distributed/README.md) | 单机Kafka+Flink+Redis+HDFS模拟 / 分组件测试 / 全链路验证 |
 | [项目结构](docs/PROJECT_STRUCTURE.md) | 文件清单 / 技术栈 / 业务主题域 |
 
 ---

@@ -1,0 +1,26 @@
+# 仪表盘
+flask==3.0.3
+gunicorn==22.0.0
+
+# Kafka
+kafka-python==2.0.2
+
+# Redis
+redis==5.0.8
+
+# 数据质量监控
+requests==2.32.3
+pandas==2.2.2
+
+# 血缘分析
+graphviz==0.20.3
+
+# AI 模块
+scikit-learn==1.5.1
+
+# 任务调度
+apscheduler==3.10.4
+
+# 工具
+pyyaml==6.0.1
+python-dateutil==2.9.0

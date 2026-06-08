@@ -1,0 +1,143 @@
+# ============================================================
+# 智慧城市交通数据治理 — Docker Compose
+# 一键启动: docker compose up -d
+# 仪表盘:    http://localhost:8088
+# Flink UI:  http://localhost:8081
+# ============================================================
+services:
+  # ==================== 消息队列 ====================
+  kafka:
+    image: bitnami/kafka:3.7
+    container_name: traffic-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      # KRaft 模式 (无需 ZooKeeper)
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_CFG_NUM_PARTITIONS=3
+      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_CFG_LOG_RETENTION_HOURS=24
+    volumes:
+      - kafka_data:/bitnami/kafka
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      timeout: 10s
+      retries: 8
+    networks:
+      - traffic-net
+
+  # ==================== Flink 集群 ====================
+  flink-jobmanager:
+    image: flink:1.18-scala_2.12
+    container_name: traffic-flink-jm
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 4
+        parallelism.default: 1
+        execution.checkpointing.interval: 300000
+        execution.checkpointing.mode: EXACTLY_ONCE
+        state.backend: hashmap
+    volumes:
+      - flink_data:/tmp/flink
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/config"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - traffic-net
+
+  flink-taskmanager:
+    image: flink:1.18-scala_2.12
+    container_name: traffic-flink-tm
+    command: taskmanager
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 4
+    volumes:
+      - flink_data:/tmp/flink
+    depends_on:
+      flink-jobmanager:
+        condition: service_healthy
+    deploy:
+      replicas: 1
+    networks:
+      - traffic-net
+
+  # ==================== Redis 缓存 ====================
+  redis:
+    image: redis:7-alpine
+    container_name: traffic-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - traffic-net
+
+  # ==================== Python 应用 ====================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: traffic-app
+    ports:
+      - "8088:8088"
+    environment:
+      - KAFKA_BOOTSTRAP=kafka:9092
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - FLASK_HOST=0.0.0.0
+      - FLASK_PORT=8088
+      - DB_PATH=/app/data/traffic_data.db
+    volumes:
+      - app_data:/app/data
+      - ./config:/app/config:ro
+      - ./sql:/app/sql:ro
+      - ./python:/app/python:ro
+      - ./pseudo_distributed:/app/pseudo_distributed:ro
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8088/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - traffic-net
+
+volumes:
+  kafka_data:
+  flink_data:
+  redis_data:
+  app_data:
+
+networks:
+  traffic-net:
+    driver: bridge
