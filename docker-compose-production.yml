@@ -1,0 +1,808 @@
+# ============================================================================
+# docker-compose-production.yml
+# 智慧城市交通大数据平台 — 生产级集群部署
+# 
+# 包含真实集群：
+#   - Kafka KRaft 集群 (3 brokers)
+#   - Flink Standalone HA (2 JM + 3 TM)
+#   - Redis Cluster (6 nodes: 3 master + 3 replica)
+#   - HDFS HA (NameNode + 3 DataNode)
+#   - Hive (HiveServer2 + Metastore + PostgreSQL)
+#   - MySQL 8.0 (业务库)
+#
+# 启动: docker-compose -f docker-compose-production.yml up -d
+# 注意: 需要至少 8GB 内存，建议 16GB
+# ============================================================================
+
+version: "3.9"
+
+networks:
+  traffic-prod-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
+
+volumes:
+  # Kafka 数据卷
+  kafka-1-data:
+  kafka-2-data:
+  kafka-3-data:
+  # HDFS 数据卷
+  hdfs-namenode-data:
+  hdfs-datanode-1-data:
+  hdfs-datanode-2-data:
+  hdfs-datanode-3-data:
+  # Hive Metastore 数据卷
+  hive-metastore-data:
+  # MySQL 数据卷
+  mysql-data:
+  # Redis 数据卷
+  redis-node-1-data:
+  redis-node-2-data:
+  redis-node-3-data:
+  redis-node-4-data:
+  redis-node-5-data:
+  redis-node-6-data:
+  # Flink 数据卷
+  flink-checkpoints:
+  flink-savepoints:
+
+# ============================================================================
+# 服务定义
+# ============================================================================
+services:
+
+  # ==========================================================================
+  # 1. Kafka KRaft 集群 — 3节点高可用
+  # ==========================================================================
+  kafka-1:
+    image: bitnami/kafka:3.7
+    container_name: traffic-kafka-1
+    hostname: kafka-1
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false
+      - KAFKA_CFG_NUM_PARTITIONS=8
+      - KAFKA_CFG_DEFAULT_REPLICATION_FACTOR=3
+      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR=2
+      - KAFKA_CFG_MIN_INSYNC_REPLICAS=2
+      - KAFKA_CFG_LOG_RETENTION_HOURS=168
+      - KAFKA_CFG_LOG_SEGMENT_BYTES=1073741824
+      - KAFKA_CFG_LOG_RETENTION_CHECK_INTERVAL_MS=300000
+    volumes:
+      - kafka-1-data:/bitnami/kafka
+    networks:
+      - traffic-prod-net
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  kafka-2:
+    image: bitnami/kafka:3.7
+    container_name: traffic-kafka-2
+    hostname: kafka-2
+    ports:
+      - "9094:9092"
+      - "9095:9093"
+    environment:
+      - KAFKA_CFG_NODE_ID=2
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9094
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false
+      - KAFKA_CFG_NUM_PARTITIONS=8
+      - KAFKA_CFG_DEFAULT_REPLICATION_FACTOR=3
+      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR=2
+      - KAFKA_CFG_MIN_INSYNC_REPLICAS=2
+      - KAFKA_CFG_LOG_RETENTION_HOURS=168
+    volumes:
+      - kafka-2-data:/bitnami/kafka
+    networks:
+      - traffic-prod-net
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  kafka-3:
+    image: bitnami/kafka:3.7
+    container_name: traffic-kafka-3
+    hostname: kafka-3
+    ports:
+      - "9096:9092"
+      - "9097:9093"
+    environment:
+      - KAFKA_CFG_NODE_ID=3
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9096
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false
+      - KAFKA_CFG_NUM_PARTITIONS=8
+      - KAFKA_CFG_DEFAULT_REPLICATION_FACTOR=3
+      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=3
+      - KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR=2
+      - KAFKA_CFG_MIN_INSYNC_REPLICAS=2
+      - KAFKA_CFG_LOG_RETENTION_HOURS=168
+    volumes:
+      - kafka-3-data:/bitnami/kafka
+    networks:
+      - traffic-prod-net
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  # Kafka Topic 初始化
+  kafka-init:
+    image: bitnami/kafka:3.7
+    container_name: traffic-kafka-init
+    depends_on:
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      kafka-3:
+        condition: service_healthy
+    entrypoint: >
+      /bin/bash -c "
+        echo '⏳ 等待 Kafka 集群就绪...' &&
+        sleep 10 &&
+        BOOTSTRAP='kafka-1:9092,kafka-2:9092,kafka-3:9092' &&
+        echo '📬 创建 Topic: traffic_vehicle (8分区, 3副本)' &&
+        kafka-topics.sh --bootstrap-server $$BOOTSTRAP --create --if-not-exists --topic traffic_vehicle --partitions 8 --replication-factor 3 &&
+        echo '📬 创建 Topic: traffic_status (4分区, 3副本)' &&
+        kafka-topics.sh --bootstrap-server $$BOOTSTRAP --create --if-not-exists --topic traffic_status --partitions 4 --replication-factor 3 &&
+        echo '📬 创建 Topic: device_status (4分区, 3副本)' &&
+        kafka-topics.sh --bootstrap-server $$BOOTSTRAP --create --if-not-exists --topic device_status --partitions 4 --replication-factor 3 &&
+        echo '📬 创建 Topic: device_alarm (4分区, 3副本)' &&
+        kafka-topics.sh --bootstrap-server $$BOOTSTRAP --create --if-not-exists --topic device_alarm --partitions 4 --replication-factor 3 --config retention.ms=604800000 &&
+        echo '📬 创建 Topic: maxwell_traffic_cdc (4分区, 3副本)' &&
+        kafka-topics.sh --bootstrap-server $$BOOTSTRAP --create --if-not-exists --topic maxwell_traffic_cdc --partitions 4 --replication-factor 3 &&
+        echo '✅ 全部 Topic 创建完成' &&
+        kafka-topics.sh --bootstrap-server $$BOOTSTRAP --describe
+      "
+    networks:
+      - traffic-prod-net
+
+  # ==========================================================================
+  # 2. Flink Standalone HA 集群
+  #    - 2 JobManager (HA, 嵌入式Journal)
+  #    - 3 TaskManager (各4 slots)
+  # ==========================================================================
+  flink-jobmanager-1:
+    image: flink:1.18-scala_2.12
+    container_name: traffic-flink-jm-1
+    hostname: flink-jobmanager-1
+    ports:
+      - "8081:8081"
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager-1
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager-1
+        jobmanager.rpc.port: 6123
+        jobmanager.memory.process.size: 2048m
+        high-availability: zookeeper
+        high-availability.zookeeper.quorum: zookeeper:2181
+        high-availability.zookeeper.path.root: /flink
+        high-availability.cluster-id: traffic-cluster
+        high-availability.storageDir: file:///opt/flink/ha
+        state.backend: rocksdb
+        state.checkpoints.dir: file:///opt/flink/checkpoints
+        state.savepoints.dir: file:///opt/flink/savepoints
+        execution.checkpointing.interval: 300000
+        execution.checkpointing.mode: EXACTLY_ONCE
+        execution.checkpointing.min-pause: 60000
+        execution.checkpointing.max-concurrent-checkpoints: 1
+        execution.checkpointing.externalized-checkpoint-retention: RETAIN_ON_CANCELLATION
+        restart-strategy: fixed-delay
+        restart-strategy.fixed-delay.attempts: 3
+        restart-strategy.fixed-delay.delay: 10s
+        taskmanager.numberOfTaskSlots: 4
+        parallelism.default: 2
+    command: jobmanager
+    volumes:
+      - flink-checkpoints:/opt/flink/checkpoints
+      - flink-savepoints:/opt/flink/savepoints
+    networks:
+      - traffic-prod-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/overview"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  flink-jobmanager-2:
+    image: flink:1.18-scala_2.12
+    container_name: traffic-flink-jm-2
+    hostname: flink-jobmanager-2
+    ports:
+      - "8082:8081"
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager-2
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager-2
+        jobmanager.rpc.port: 6123
+        jobmanager.memory.process.size: 2048m
+        high-availability: zookeeper
+        high-availability.zookeeper.quorum: zookeeper:2181
+        high-availability.zookeeper.path.root: /flink
+        high-availability.cluster-id: traffic-cluster
+        high-availability.storageDir: file:///opt/flink/ha
+        state.backend: rocksdb
+        state.checkpoints.dir: file:///opt/flink/checkpoints
+        state.savepoints.dir: file:///opt/flink/savepoints
+        execution.checkpointing.interval: 300000
+        execution.checkpointing.mode: EXACTLY_ONCE
+        taskmanager.numberOfTaskSlots: 4
+        parallelism.default: 2
+    command: jobmanager
+    volumes:
+      - flink-checkpoints:/opt/flink/checkpoints
+      - flink-savepoints:/opt/flink/savepoints
+    networks:
+      - traffic-prod-net
+    depends_on:
+      - flink-jobmanager-1
+
+  flink-taskmanager-1:
+    image: flink:1.18-scala_2.12
+    container_name: traffic-flink-tm-1
+    hostname: flink-taskmanager-1
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager-1
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager-1
+        taskmanager.host: flink-taskmanager-1
+        taskmanager.numberOfTaskSlots: 4
+        taskmanager.memory.process.size: 4096m
+        taskmanager.memory.flink.size: 3072m
+        state.backend: rocksdb
+    command: taskmanager
+    volumes:
+      - flink-checkpoints:/opt/flink/checkpoints
+    networks:
+      - traffic-prod-net
+    depends_on:
+      flink-jobmanager-1:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+
+  flink-taskmanager-2:
+    image: flink:1.18-scala_2.12
+    container_name: traffic-flink-tm-2
+    hostname: flink-taskmanager-2
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager-1
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager-1
+        taskmanager.host: flink-taskmanager-2
+        taskmanager.numberOfTaskSlots: 4
+        taskmanager.memory.process.size: 4096m
+        taskmanager.memory.flink.size: 3072m
+        state.backend: rocksdb
+    command: taskmanager
+    volumes:
+      - flink-checkpoints:/opt/flink/checkpoints
+    networks:
+      - traffic-prod-net
+    depends_on:
+      flink-jobmanager-1:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+
+  flink-taskmanager-3:
+    image: flink:1.18-scala_2.12
+    container_name: traffic-flink-tm-3
+    hostname: flink-taskmanager-3
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager-1
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager-1
+        taskmanager.host: flink-taskmanager-3
+        taskmanager.numberOfTaskSlots: 4
+        taskmanager.memory.process.size: 4096m
+        taskmanager.memory.flink.size: 3072m
+        state.backend: rocksdb
+    command: taskmanager
+    volumes:
+      - flink-checkpoints:/opt/flink/checkpoints
+    networks:
+      - traffic-prod-net
+    depends_on:
+      flink-jobmanager-1:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+
+  # ZooKeeper (Flink HA 依赖)
+  zookeeper:
+    image: zookeeper:3.8
+    container_name: traffic-zookeeper
+    hostname: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      - ZOO_MY_ID=1
+      - ZOO_SERVERS=server.1=zookeeper:2888:3888;2181
+      - ZOO_TICK_TIME=2000
+      - ZOO_INIT_LIMIT=5
+      - ZOO_SYNC_LIMIT=2
+    networks:
+      - traffic-prod-net
+    healthcheck:
+      test: ["CMD", "zkServer.sh", "status"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # ==========================================================================
+  # 3. Redis Cluster — 6节点 (3主3从)
+  # ==========================================================================
+  redis-node-1:
+    image: redis:7-alpine
+    container_name: traffic-redis-1
+    hostname: redis-node-1
+    ports:
+      - "6379:6379"
+      - "16379:16379"
+    volumes:
+      - redis-node-1-data:/data
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 1gb
+      --maxmemory-policy allkeys-lru
+      --protected-mode no
+    networks:
+      - traffic-prod-net
+
+  redis-node-2:
+    image: redis:7-alpine
+    container_name: traffic-redis-2
+    hostname: redis-node-2
+    ports:
+      - "6380:6380"
+      - "16380:16380"
+    volumes:
+      - redis-node-2-data:/data
+    command: >
+      redis-server
+      --port 6380
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 1gb
+      --maxmemory-policy allkeys-lru
+      --protected-mode no
+    networks:
+      - traffic-prod-net
+
+  redis-node-3:
+    image: redis:7-alpine
+    container_name: traffic-redis-3
+    hostname: redis-node-3
+    ports:
+      - "6381:6381"
+      - "16381:16381"
+    volumes:
+      - redis-node-3-data:/data
+    command: >
+      redis-server
+      --port 6381
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 1gb
+      --maxmemory-policy allkeys-lru
+      --protected-mode no
+    networks:
+      - traffic-prod-net
+
+  redis-node-4:
+    image: redis:7-alpine
+    container_name: traffic-redis-4
+    hostname: redis-node-4
+    ports:
+      - "6382:6382"
+      - "16382:16382"
+    volumes:
+      - redis-node-4-data:/data
+    command: >
+      redis-server
+      --port 6382
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 1gb
+      --maxmemory-policy allkeys-lru
+      --protected-mode no
+    networks:
+      - traffic-prod-net
+
+  redis-node-5:
+    image: redis:7-alpine
+    container_name: traffic-redis-5
+    hostname: redis-node-5
+    ports:
+      - "6383:6383"
+      - "16383:16383"
+    volumes:
+      - redis-node-5-data:/data
+    command: >
+      redis-server
+      --port 6383
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 1gb
+      --maxmemory-policy allkeys-lru
+      --protected-mode no
+    networks:
+      - traffic-prod-net
+
+  redis-node-6:
+    image: redis:7-alpine
+    container_name: traffic-redis-6
+    hostname: redis-node-6
+    ports:
+      - "6384:6384"
+      - "16384:16384"
+    volumes:
+      - redis-node-6-data:/data
+    command: >
+      redis-server
+      --port 6384
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 1gb
+      --maxmemory-policy allkeys-lru
+      --protected-mode no
+    networks:
+      - traffic-prod-net
+
+  # Redis Cluster 初始化
+  redis-cluster-init:
+    image: redis:7-alpine
+    container_name: traffic-redis-cluster-init
+    depends_on:
+      - redis-node-1
+      - redis-node-2
+      - redis-node-3
+      - redis-node-4
+      - redis-node-5
+      - redis-node-6
+    entrypoint: >
+      /bin/sh -c "
+        echo '⏳ 等待 Redis 节点启动...' &&
+        sleep 5 &&
+        echo '🔗 创建 Redis Cluster (3主3从)...' &&
+        redis-cli --cluster create
+          redis-node-1:6379
+          redis-node-2:6380
+          redis-node-3:6381
+          redis-node-4:6382
+          redis-node-5:6383
+          redis-node-6:6384
+          --cluster-replicas 1
+          --cluster-yes &&
+        echo '✅ Redis Cluster 创建完成'
+      "
+    networks:
+      - traffic-prod-net
+
+  # ==========================================================================
+  # 4. HDFS 分布式存储
+  #    - NameNode (HA准备)
+  #    - 3 DataNode
+  # ==========================================================================
+  hdfs-namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: traffic-hdfs-namenode
+    hostname: hdfs-namenode
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    environment:
+      - CLUSTER_NAME=traffic-hdfs
+      - CORE_CONF_fs_defaultFS=hdfs://hdfs-namenode:9000
+      - CORE_CONF_hadoop_http_staticuser_user=root
+      - HDFS_CONF_dfs_replication=3
+      - HDFS_CONF_dfs_namenode_acls_enabled=true
+      - HDFS_CONF_dfs_permissions_enabled=false
+    volumes:
+      - hdfs-namenode-data:/hadoop/dfs/name
+    networks:
+      - traffic-prod-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9870"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  hdfs-datanode-1:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: traffic-hdfs-dn-1
+    hostname: hdfs-datanode-1
+    ports:
+      - "9864:9864"
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://hdfs-namenode:9000
+      - HDFS_CONF_dfs_datanode_data_dir=file:///hadoop/dfs/data
+      - HDFS_CONF_dfs_replication=3
+      - SERVICE_PRECONDITION=hdfs-namenode:9870
+    volumes:
+      - hdfs-datanode-1-data:/hadoop/dfs/data
+    depends_on:
+      - hdfs-namenode
+    networks:
+      - traffic-prod-net
+
+  hdfs-datanode-2:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: traffic-hdfs-dn-2
+    hostname: hdfs-datanode-2
+    ports:
+      - "9865:9864"
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://hdfs-namenode:9000
+      - HDFS_CONF_dfs_datanode_data_dir=file:///hadoop/dfs/data
+      - HDFS_CONF_dfs_replication=3
+      - SERVICE_PRECONDITION=hdfs-namenode:9870
+    volumes:
+      - hdfs-datanode-2-data:/hadoop/dfs/data
+    depends_on:
+      - hdfs-namenode
+    networks:
+      - traffic-prod-net
+
+  hdfs-datanode-3:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: traffic-hdfs-dn-3
+    hostname: hdfs-datanode-3
+    ports:
+      - "9866:9864"
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://hdfs-namenode:9000
+      - HDFS_CONF_dfs_datanode_data_dir=file:///hadoop/dfs/data
+      - HDFS_CONF_dfs_replication=3
+      - SERVICE_PRECONDITION=hdfs-namenode:9870
+    volumes:
+      - hdfs-datanode-3-data:/hadoop/dfs/data
+    depends_on:
+      - hdfs-namenode
+    networks:
+      - traffic-prod-net
+
+  # ==========================================================================
+  # 5. Hive 数仓 (HiveServer2 + Metastore + PostgreSQL)
+  # ==========================================================================
+  hive-metastore-db:
+    image: postgres:15-alpine
+    container_name: traffic-hive-metastore-db
+    hostname: hive-metastore-db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=hive
+      - POSTGRES_PASSWORD=hive123
+      - POSTGRES_DB=hive_metastore
+    volumes:
+      - hive-metastore-data:/var/lib/postgresql/data
+    networks:
+      - traffic-prod-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hive -d hive_metastore"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  hive-metastore:
+    image: apache/hive:4.0.0
+    container_name: traffic-hive-metastore
+    hostname: hive-metastore
+    ports:
+      - "9083:9083"
+    environment:
+      - SERVICE_NAME=metastore
+      - DB_DRIVER=postgres
+      - SERVICE_OPTS=-Djavax.jdo.option.ConnectionDriverName=org.postgresql.Driver -Djavax.jdo.option.ConnectionURL=jdbc:postgresql://hive-metastore-db:5432/hive_metastore -Djavax.jdo.option.ConnectionUserName=hive -Djavax.jdo.option.ConnectionPassword=hive123
+      - HIVE_CONF_javax_jdo_option_ConnectionURL=jdbc:postgresql://hive-metastore-db:5432/hive_metastore
+      - HIVE_CONF_javax_jdo_option_ConnectionDriverName=org.postgresql.Driver
+      - HIVE_CONF_javax_jdo_option_ConnectionUserName=hive
+      - HIVE_CONF_javax_jdo_option_ConnectionPassword=hive123
+      - HIVE_CONF_hive_metastore_warehouse_dir=/user/hive/warehouse
+      - HIVE_CONF_hive_metastore_event_db_notification_api_auth=false
+    depends_on:
+      hive-metastore-db:
+        condition: service_healthy
+      hdfs-namenode:
+        condition: service_healthy
+    volumes:
+      - ./bin/init_hive_tables.sh:/opt/hive/init_hive_tables.sh:ro
+      - ./sql:/opt/hive/sql:ro
+    networks:
+      - traffic-prod-net
+    command: >
+      /bin/bash -c "
+        schematool -dbType postgres -initSchema --verbose || true &&
+        hive --service metastore
+      "
+
+  hiveserver2:
+    image: apache/hive:4.0.0
+    container_name: traffic-hiveserver2
+    hostname: hiveserver2
+    ports:
+      - "10000:10000"
+      - "10002:10002"
+    environment:
+      - SERVICE_NAME=hiveserver2
+      - HIVE_CONF_javax_jdo_option_ConnectionURL=jdbc:postgresql://hive-metastore-db:5432/hive_metastore
+      - HIVE_CONF_javax_jdo_option_ConnectionDriverName=org.postgresql.Driver
+      - HIVE_CONF_javax_jdo_option_ConnectionUserName=hive
+      - HIVE_CONF_javax_jdo_option_ConnectionPassword=hive123
+      - HIVE_CONF_hive_server2_transport_mode=binary
+      - HIVE_CONF_hive_server2_thrift_bind_host=0.0.0.0
+      - HIVE_CONF_hive_server2_thrift_port=10000
+      - HIVE_CONF_hive_server2_enable_doAs=false
+    depends_on:
+      - hive-metastore
+    networks:
+      - traffic-prod-net
+    command: >
+      /bin/bash -c "
+        sleep 15 &&
+        hive --service hiveserver2
+      "
+
+  # ==========================================================================
+  # 6. MySQL 8.0 — 业务数据库
+  # ==========================================================================
+  mysql:
+    image: mysql:8.0
+    container_name: traffic-mysql
+    hostname: mysql
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root123
+      - MYSQL_DATABASE=traffic_biz
+      - MYSQL_USER=traffic
+      - MYSQL_PASSWORD=traffic123
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./mysql:/docker-entrypoint-initdb.d:ro
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max_connections=500
+      --innodb_buffer_pool_size=512M
+    networks:
+      - traffic-prod-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "traffic", "-ptraffic123"]
+      interval: 15s
+      timeout: 10s
+      retries: 15
+      start_period: 40s
+
+  # ==========================================================================
+  # 7. 业务应用
+  # ==========================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: traffic-app
+    hostname: app
+    ports:
+      - "8088:8088"
+    environment:
+      # Kafka 集群地址
+      - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
+      # Redis Cluster 地址
+      - REDIS_HOST=redis-node-1
+      - REDIS_PORT=6379
+      - REDIS_CLUSTER_NODES=redis-node-1:6379,redis-node-2:6380,redis-node-3:6381,redis-node-4:6382,redis-node-5:6383,redis-node-6:6384
+      # Flink 地址
+      - FLINK_REST_URL=http://flink-jobmanager-1:8081
+      # MySQL 地址
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=traffic_biz
+      - MYSQL_USER=traffic
+      - MYSQL_PASSWORD=traffic123
+      # Hive 地址
+      - HIVE_HOST=hiveserver2
+      - HIVE_PORT=10000
+      - HIVE_DATABASE=traffic_db
+      # HDFS 地址
+      - HDFS_NAMENODE=hdfs://hdfs-namenode:9000
+      # Flask 配置
+      - FLASK_HOST=0.0.0.0
+      - FLASK_PORT=8088
+      - FLASK_ENV=production
+    volumes:
+      - ./config:/app/config:ro
+      - ./sql:/app/sql:ro
+      - ./python:/app/python:ro
+      - ./flink:/app/flink:ro
+    depends_on:
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      kafka-3:
+        condition: service_healthy
+      redis-cluster-init:
+        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
+      hiveserver2:
+        condition: service_started
+    networks:
+      - traffic-prod-net
+    restart: unless-stopped
