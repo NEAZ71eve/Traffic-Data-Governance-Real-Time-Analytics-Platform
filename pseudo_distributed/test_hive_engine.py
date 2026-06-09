@@ -57,8 +57,9 @@ for layer_name, files in sql_files:
     for fp in files:
         try:
             result = hive.load_sql_file(fp)
-            lines = result.split("\n")
-            create_line = [l for l in lines if "CREATE TABLE" in l][0] if lines else result[:80]
+            lines = result.split("\n") if result else []
+            create_lines = [l for l in lines if "CREATE TABLE" in l]
+            create_line = create_lines[0] if create_lines else result[:80] if result else "N/A"
             print(f"  [OK] {fp.split('/')[-1]} : {create_line[:90]}")
             total_ok += 1
 

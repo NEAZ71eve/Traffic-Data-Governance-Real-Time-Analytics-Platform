@@ -12,6 +12,9 @@ __pycache__/
 # Demo output
 demo_output/
 
+# Pseudo-distributed test generated data
+pseudo_distributed/data/hdfs/
+
 # IDE
 .vscode/
 .idea/
