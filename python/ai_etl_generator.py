@@ -74,11 +74,11 @@ INSERT OVERWRITE TABLE {target_table} PARTITION (dt)
 SELECT
 {columns}
 FROM {source_table}
-WHERE dt = '${date}'
+WHERE dt = '{date_placeholder}'
 {filter_conditions}
 {distinct_clause};
 
-ALTER TABLE {target_table} ADD IF NOT EXISTS PARTITION (dt='${date}');
+ALTER TABLE {target_table} ADD IF NOT EXISTS PARTITION (dt='{date_placeholder}');
 MSCK REPAIR TABLE {target_table};"""
         }
 
@@ -108,6 +108,7 @@ MSCK REPAIR TABLE {target_table};"""
             source_table=source_table,
             target_table=target_table,
             columns=cols_str,
+            date_placeholder='${date}',
             filter_conditions=filter_conditions,
             distinct_clause=distinct_clause
         )
@@ -128,6 +129,7 @@ MSCK REPAIR TABLE {target_table};"""
         if join_tables:
             join_clause = '\n'.join([f'JOIN {t} ON ...' for t in join_tables])
         
+        date_placeholder = '${date}'
         return f"""SET hive.exec.dynamic.partition=true;
 SET hive.exec.dynamic.partition.mode=nonstrict;
 
@@ -138,17 +140,17 @@ SELECT
     dt
 FROM {source_table}
 {join_clause}
-WHERE dt = '${{date}}'
+WHERE dt = '{date_placeholder}'
 GROUP BY {group_by_str}, dt;
 
-ALTER TABLE {target_table} ADD IF NOT EXISTS PARTITION (dt='${{date}}');
+ALTER TABLE {target_table} ADD IF NOT EXISTS PARTITION (dt='{date_placeholder}');
 MSCK REPAIR TABLE {target_table};"""
 
 class NL2SQLConverter:
     def __init__(self):
         self.patterns = [
             {
-                'pattern': '最拥堵的.*道路',
+                'keywords': ['拥堵', '道路'],
                 'sql': """SELECT r.road_name, ROUND(AVG(jam_level), 2) as avg_jam_level
 FROM dwd_traffic_status_di ts
 JOIN dim_road_zip r ON ts.road_id = r.road_id AND r.is_current = 'Y'
@@ -158,7 +160,7 @@ ORDER BY avg_jam_level DESC
 LIMIT {limit};"""
             },
             {
-                'pattern': '车流量.*最高',
+                'keywords': ['车流量'],
                 'sql': """SELECT r.road_name, SUM(traffic_flow) as total_flow
 FROM dwd_traffic_status_di ts
 JOIN dim_road_zip r ON ts.road_id = r.road_id AND r.is_current = 'Y'
@@ -168,7 +170,7 @@ ORDER BY total_flow DESC
 LIMIT {limit};"""
             },
             {
-                'pattern': '设备.*离线',
+                'keywords': ['设备', '离线'],
                 'sql': """SELECT d.device_id, d.device_type, d.area, COUNT(*) as offline_count
 FROM dwd_device_status_di ds
 JOIN dim_device_zip d ON ds.device_id = d.device_id AND d.is_current = 'Y'
@@ -178,13 +180,13 @@ GROUP BY d.device_id, d.device_type, d.area
 ORDER BY offline_count DESC;"""
             },
             {
-                'pattern': '平均速度',
+                'keywords': ['平均速度'],
                 'sql': """SELECT ROUND(AVG(speed), 2) as avg_speed
 FROM dwd_vehicle_pass_di
 WHERE dt = '{date}';"""
             },
             {
-                'pattern': '高峰.*时段',
+                'keywords': ['高峰'],
                 'sql': """SELECT hour, COUNT(*) as traffic_count
 FROM dwd_vehicle_pass_di
 WHERE dt = '{date}'
@@ -199,7 +201,9 @@ LIMIT 3;"""
             date = '${date}'
         
         for pattern in self.patterns:
-            if pattern['pattern'] in natural_query:
+            # 关键词匹配：如果查询中包含所有关键字，就匹配
+            keywords = pattern['keywords']
+            if all(kw in natural_query for kw in keywords):
                 return pattern['sql'].format(date=date, limit=limit)
         
         return f"-- 无法识别查询模式: {natural_query}"
