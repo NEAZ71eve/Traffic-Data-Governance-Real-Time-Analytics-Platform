@@ -1,0 +1,310 @@
+# ============================================================================
+# docker-compose-phase2.yml
+# 智慧城市交通大数据平台 — 第二阶段整改：数据采集 + 调度可视化 + SCD2 ETL
+#
+# 新增服务：
+#   - DataX (全量同步)
+#   - Maxwell (CDC Binlog采集)
+#   - Flume (日志采集)
+#   - DolphinScheduler (调度)
+#   - Superset (可视化)
+#   - SCD2 ETL 初始化
+#
+# 启动: docker-compose -f docker-compose-phase2.yml up -d
+# ============================================================================
+
+version: "3.9"
+
+networks:
+  traffic-prod-net:
+    external: true
+    name: traffic-prod-net
+
+volumes:
+  datax-data:
+  flume-data:
+  dolphinscheduler-data:
+  superset-data:
+
+services:
+
+  # ==========================================================================
+  # 1. DataX — 全量数据同步
+  #    同步 MySQL 维表到 Hive ODS
+  # ==========================================================================
+  datax:
+    image: vincentmi/vincentmi-datax:3.0
+    container_name: traffic-datax
+    hostname: datax
+    volumes:
+      - ./datax:/datax/job:ro
+      - datax-data:/datax/data
+    environment:
+      - DATAX_HOME=/datax
+    command: >
+      /bin/bash -c "
+        echo 'DataX 已就绪，等待调度触发...' &&
+        tail -f /dev/null
+      "
+    networks:
+      - traffic-prod-net
+    depends_on: []
+
+  # ==========================================================================
+  # 2. Maxwell — CDC Binlog 采集
+  #    采集 MySQL 变更到 Kafka
+  # ==========================================================================
+  maxwell:
+    image: zendesk/maxwell:v1.40.5
+    container_name: traffic-maxwell
+    hostname: maxwell
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_USER=maxwell
+      - MYSQL_PASSWORD=maxwell123
+      - MYSQL_DATABASE=traffic_biz
+      - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
+      - KAFKA_TOPIC=maxwell_traffic_cdc
+      - PRODUCER_ACKS=1
+      - LOG_LEVEL=INFO
+    command: >
+      /bin/bash -c "
+        echo '⏳ 等待 MySQL 就绪...' &&
+        sleep 30 &&
+        echo '🔧 创建 Maxwell 用户...' &&
+        mysql -h mysql -P 3306 -u root -proot123 -e \"CREATE USER IF NOT EXISTS 'maxwell'@'%' IDENTIFIED BY 'maxwell123'; GRANT ALL ON maxwell.* TO 'maxwell'@'%'; GRANT SELECT, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'maxwell'@'%'; FLUSH PRIVILEGES;\" &&
+        echo '🚀 启动 Maxwell...' &&
+        /app/maxwell-1.40.5/bin/maxwell
+          --host=mysql
+          --port=3306
+          --user=maxwell
+          --password=maxwell123
+          --producer=kafka
+          --kafka.bootstrap.servers=kafka-1:9092,kafka-2:9092,kafka-3:9092
+          --kafka_topic=maxwell_traffic_cdc
+          --client_id=maxwell-traffic
+          --replica_server_id=6379
+          --filter='exclude: *.*, include: traffic_biz.t_device, include: traffic_biz.t_road, include: traffic_biz.t_area'
+      "
+    networks:
+      - traffic-prod-net
+    depends_on: []
+
+  # ==========================================================================
+  # 3. Flume — 日志采集
+  #    采集模拟日志到 Kafka
+  # ==========================================================================
+  flume:
+    image: probablyfine/flume:1.9.0
+    container_name: traffic-flume
+    hostname: flume
+    volumes:
+      - ./flume:/opt/flume/conf:ro
+      - flume-data:/data/flume
+    environment:
+      - FLUME_AGENT_NAME=agent
+    command: >
+      /bin/bash -c "
+        echo '⏳ 等待 Kafka 就绪...' &&
+        sleep 30 &&
+        echo '📄 创建模拟日志文件...' &&
+        mkdir -p /data/logs/traffic &&
+        echo '{\"vehicle_id\":\"V001\",\"road_id\":\"R001\",\"pass_time\":\"2026-06-09 10:00:00\",\"speed\":60}' > /data/logs/traffic/vehicle_pass.log &&
+        echo '🚀 启动 Flume Agent...' &&
+        flume-ng agent -n agent -c /opt/flume/conf -f /opt/flume/conf/flume_vehicle_to_kafka.conf
+      "
+    networks:
+      - traffic-prod-net
+    depends_on: []
+
+  # ==========================================================================
+  # 4. MySQL 初始化 — 创建业务表和模拟数据
+  # ==========================================================================
+  mysql-init:
+    image: mysql:8.0
+    container_name: traffic-mysql-init
+    environment:
+      - MYSQL_ROOT_PASSWORD=root123
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+    volumes:
+      - ./mysql/init_biz_data.sql:/init_biz_data.sql:ro
+    command: >
+      /bin/bash -c "
+        echo '⏳ 等待 MySQL 就绪...' &&
+        sleep 30 &&
+        echo '📊 创建业务表和模拟数据...' &&
+        mysql -h mysql -P 3306 -u root -proot123 traffic_biz < /init_biz_data.sql &&
+        echo '✅ MySQL 业务数据初始化完成'
+      "
+    networks:
+      - traffic-prod-net
+    depends_on: []
+
+  # ==========================================================================
+  # 5. DolphinScheduler — 任务调度
+  # ==========================================================================
+  dolphinscheduler-api:
+    image: apache/dolphinscheduler:3.2.0-api
+    container_name: traffic-ds-api
+    hostname: dolphinscheduler-api
+    ports:
+      - "12345:12345"
+    environment:
+      - DATABASE_TYPE=postgresql
+      - DATABASE_HOST=dolphinscheduler-db
+      - DATABASE_PORT=5432
+      - DATABASE_USERNAME=ds
+      - DATABASE_PASSWORD=ds123
+      - DATABASE_DATABASE=dolphinscheduler
+      - TZ=Asia/Shanghai
+    networks:
+      - traffic-prod-net
+    depends_on:
+      - dolphinscheduler-db
+
+  dolphinscheduler-master:
+    image: apache/dolphinscheduler:3.2.0-master
+    container_name: traffic-ds-master
+    hostname: dolphinscheduler-master
+    environment:
+      - DATABASE_TYPE=postgresql
+      - DATABASE_HOST=dolphinscheduler-db
+      - DATABASE_PORT=5432
+      - DATABASE_USERNAME=ds
+      - DATABASE_PASSWORD=ds123
+      - DATABASE_DATABASE=dolphinscheduler
+      - TZ=Asia/Shanghai
+    networks:
+      - traffic-prod-net
+    depends_on:
+      - dolphinscheduler-db
+
+  dolphinscheduler-worker:
+    image: apache/dolphinscheduler:3.2.0-worker
+    container_name: traffic-ds-worker
+    hostname: dolphinscheduler-worker
+    environment:
+      - DATABASE_TYPE=postgresql
+      - DATABASE_HOST=dolphinscheduler-db
+      - DATABASE_PORT=5432
+      - DATABASE_USERNAME=ds
+      - DATABASE_PASSWORD=ds123
+      - DATABASE_DATABASE=dolphinscheduler
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./sql:/dolphinscheduler/resources/sql:ro
+      - ./python:/dolphinscheduler/resources/python:ro
+    networks:
+      - traffic-prod-net
+    depends_on:
+      - dolphinscheduler-db
+
+  dolphinscheduler-db:
+    image: postgres:15-alpine
+    container_name: traffic-ds-db
+    hostname: dolphinscheduler-db
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=ds
+      - POSTGRES_PASSWORD=ds123
+      - POSTGRES_DB=dolphinscheduler
+    volumes:
+      - dolphinscheduler-data:/var/lib/postgresql/data
+    networks:
+      - traffic-prod-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ds -d dolphinscheduler"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # 6. Superset — 可视化看板
+  # ==========================================================================
+  superset:
+    image: apache/superset:3.1.0
+    container_name: traffic-superset
+    hostname: superset
+    ports:
+      - "8088:8088"
+    environment:
+      - SUPERSET_SECRET_KEY=traffic-superset-secret-key-2024
+      - DATABASE_DB=superset
+      - DATABASE_HOST=superset-db
+      - DATABASE_PORT=5432
+      - DATABASE_USER=superset
+      - DATABASE_PASSWORD=superset123
+      - DATABASE_DIALECT=postgresql
+      - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://superset:superset123@superset-db:5432/superset
+      - HIVE_CONNECTION_URI=hive://hiveserver2:10000/traffic_db
+      - REDIS_HOST=redis-node-1
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+    volumes:
+      - superset-data:/app/superset_home
+      - ./docs/BI_DASHBOARDS.md:/app/superset_home/dashboards.md:ro
+    command: >
+      /bin/bash -c "
+        echo '⏳ 等待数据库就绪...' &&
+        sleep 20 &&
+        echo '🔧 初始化 Superset...' &&
+        superset db upgrade &&
+        superset fab create-admin --username admin --firstname Traffic --lastname Admin --email admin@traffic.com --password admin123 || true &&
+        superset init &&
+        echo '🚀 启动 Superset...' &&
+        superset run -h 0.0.0.0 -p 8088 --with-threads --reload --debugger
+      "
+    networks:
+      - traffic-prod-net
+    depends_on:
+      - superset-db
+
+  superset-db:
+    image: postgres:15-alpine
+    container_name: traffic-superset-db
+    hostname: superset-db
+    ports:
+      - "5434:5432"
+    environment:
+      - POSTGRES_USER=superset
+      - POSTGRES_PASSWORD=superset123
+      - POSTGRES_DB=superset
+    volumes:
+      - superset-data:/var/lib/postgresql/data
+    networks:
+      - traffic-prod-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U superset -d superset"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # 7. SCD2 ETL 初始化
+  # ==========================================================================
+  scd2-init:
+    image: apache/hive:4.0.0
+    container_name: traffic-scd2-init
+    volumes:
+      - ./sql/dim:/opt/hive/sql/dim:ro
+      - ./bin/scd2_etl.sh:/opt/hive/scd2_etl.sh:ro
+    environment:
+      - HIVE_CONF_javax_jdo_option_ConnectionURL=jdbc:postgresql://hive-metastore-db:5432/hive_metastore
+      - HIVE_CONF_javax_jdo_option_ConnectionDriverName=org.postgresql.Driver
+      - HIVE_CONF_javax_jdo_option_ConnectionUserName=hive
+      - HIVE_CONF_javax_jdo_option_ConnectionPassword=hive123
+    command: >
+      /bin/bash -c "
+        echo '⏳ 等待 Hive 就绪...' &&
+        sleep 60 &&
+        echo '🔧 初始化 SCD2 拉链表...' &&
+        bash /opt/hive/scd2_etl.sh init &&
+        echo '✅ SCD2 初始化完成'
+      "
+    networks:
+      - traffic-prod-net
+    depends_on: []
+
