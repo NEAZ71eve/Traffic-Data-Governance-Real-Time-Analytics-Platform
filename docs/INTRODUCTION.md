@@ -2,7 +2,8 @@
 
 > **智慧城市交通数据治理实时分析平台**  
 > Traffic Data Governance & Real-Time Analytics Platform for Smart City  
-> 版本 v1.0 | 2026-06
+> 版本 v2.0 | 2026-06-10  
+> 🚀 已从伪分布式升级为真实 Docker 容器部署：HDFS + Hive 4.0.0 + Kafka 3.7.0 + Flink 1.18 + DolphinScheduler 2.0.5
 
 ---
 

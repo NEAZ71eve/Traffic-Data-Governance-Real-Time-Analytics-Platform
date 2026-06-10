@@ -82,6 +82,7 @@ LEFT JOIN (
                al.avg_recover_minutes, al.dt
         FROM traffic_db.dws_alarm_day al
         JOIN traffic_db.dim_device_zip a
+          ON a.device_id = al.device_id
         WHERE al.dt = '${date}'
           AND a.is_current = 'Y'
           AND a.dt = '${date}'

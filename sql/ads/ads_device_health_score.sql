@@ -115,7 +115,9 @@ LEFT JOIN (
     FROM (
         SELECT d2.device_id, a2.total_alarm_count, a2.recovery_rate, a2.dt
         FROM traffic_db.dws_alarm_day a2
-        JOIN traffic_db.dim_device_zip d2 ON a2.alarm_type IN (
+        JOIN traffic_db.dim_device_zip d2
+          ON d2.device_id = a2.device_id
+         AND a2.alarm_type IN (
             'OFFLINE', 'CPU_HIGH', 'MEMORY_HIGH', 'TEMP_HIGH', 'SIGNAL_WEAK', 'HARDWARE_FAULT'
         )
         WHERE a2.dt = '${date}' AND d2.is_current = 'Y' AND d2.dt = '${date}'

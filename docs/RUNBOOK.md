@@ -1,64 +1,74 @@
 # 运维操作手册 (Operations Runbook)
 
-> 版本: v2.0 | 更新日期: 2026-06-08 | 适用于: Traffic-Data-Governance-Real-Time-Analytics-Platform
+> 版本: v3.0 | 更新日期: 2026-06-10 | 适用于: Traffic-Data-Governance-Real-Time-Analytics-Platform
 
 ---
 
 ## 一、系统架构速查
 
 ```
-Kafka (traffic_vehicle/status/device_status/device_alarm)
+traffic-kafka-1:9092 (Kafka 3.7.0 KRaft)
   │
-  ├─→ Flink (TrafficVehicleCount → Redis)
-  ├─→ Flink (TrafficCongestionDetection → Kafka/Alert)
-  ├─→ Flink (DeviceStatusCEP → Kafka/Alert)
+  ├─→ traffic-flink-jm:8081 (Flink 1.18.1)
+  │     └─ TrafficVehicleCount (5min滚动窗口, Watermark 30s)
+  │          └─ Redis Sink
   │
   └─→ HDFS → Hive (ODS → DWD → DWS → ADS)
-                  ↑
-         DolphinScheduler (T+1 ETL调度)
-                  │
-         Python data_quality_monitor.py
-                  │
-         ┌────────┼────────┐
-         ▼        ▼        ▼
-      DingTalk   Email   Superset
+         ↑
+  traffic-ds-api:12345 (DolphinScheduler 2.0.5)
 ```
 
-| 组件 | 默认端口 | 用途 |
-|------|---------|------|
-| ZooKeeper | 2181 | Kafka 协调 |
-| Kafka Broker | 9092 | 消息队列 |
-| Hadoop NameNode | 8020/9870 | HDFS 元数据 |
-| HiveServer2 | 10000 | SQL 查询服务 |
-| Flink JobManager | 8081 | 作业管理 Web UI |
-| Flink TaskManager | 随机 | 作业执行 |
-| Redis | 6379 | 实时缓存 |
-| DolphinScheduler | 12345 | 任务调度 |
-| Superset | 8088 | 可视化看板 |
+| 组件 | 默认端口 | 用途 | 运行方式 |
+|------|---------|------|---------|
+| HDFS NameNode | 9870/9000 | HDFS 元数据 | Docker |
+| HiveServer2 | 10000 | SQL 查询服务 | Docker |
+| Kafka | 9092 | 消息队列 | Docker KRaft |
+| Flink JobManager | 8081 | 作业管理 Web UI | Docker |
+| Flink TaskManager | 随机 | 作业执行 | Docker |
+| Redis | 6379 | 实时缓存 | Docker (Dify) |
+| DolphinScheduler API | 12345 | 任务调度 | Docker |
+| Hive Metastore/PostgreSQL | 9083/5432(内网) | Hive 元数据 | Docker |
 
 ---
 
 ## 二、初次部署
 
-### 2.1 环境依赖检查
+### 2.1 Docker 部署（推荐）
 
 ```bash
-# 检查 Java 版本 (需要 1.8+)
-java -version
+# 1. 拉取镜像
+docker pull bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+docker pull bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+docker pull apache/hive:4.0.0
+docker pull postgres:15-alpine
+docker pull flink:1.18-scala_2.12
+docker pull apache/kafka:3.7.0
+docker pull apache/dolphinscheduler:latest
 
-# 检查 Python 版本 (需要 3.8+)
-python --version
+# 2. 创建网络
+docker network create traffic-prod-net
 
-# 安装 Python 依赖
-cd D:\s\新项目\python
-pip install pyhive kafka-python openpyxl
+# 3. 启动各组件（分步）
+# → HDFS
+docker compose -p traffic -f docker-compose-production.yml up -d hdfs-namenode hdfs-datanode-1
+# → Hive
+docker compose -p traffic -f docker-compose-production.yml up -d hive-metastore-db hive-metastore hiveserver2
+# → Kafka
+docker run -d --name traffic-kafka-1 --network traffic_traffic-prod-net -p 9092:9092 \
+  -e KAFKA_NODE_ID=1 -e KAFKA_PROCESS_ROLES=broker,controller \
+  -e KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093 \
+  -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 \
+  -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER \
+  -e CLUSTER_ID=4L6g3nShT-eMCtK--X86sw \
+  apache/kafka:3.7.0
+# → Flink
+docker run -d --name traffic-flink-jm --network traffic_traffic-prod-net -p 8081:8081 flink:1.18-scala_2.12 jobmanager
+docker run -d --name traffic-flink-tm --network traffic_traffic-prod-net -e JOB_MANAGER_RPC_ADDRESS=flink-jobmanager flink:1.18-scala_2.12 taskmanager
+# → DolphinScheduler
+docker compose -p traffic -f docker-compose-phase2.yml up -d dolphinscheduler-db dolphinscheduler-api dolphinscheduler-master dolphinscheduler-worker
 
-# 检查 Hadoop 状态
-hdfs dfsadmin -report
-yarn node -list
-
-# 检查 Hive
-beeline -u "jdbc:hive2://localhost:10000" -e "SELECT 1"
+# 4. 验证
+docker ps
 ```
 
 ### 2.2 配置文件初始化（Windows）

@@ -16,7 +16,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
-        <flink.version>1.15.4</flink.version>
+        <flink.version>1.18.0</flink.version>
         <scala.binary.version>2.12</scala.binary.version>
         <hadoop.version>3.3.4</hadoop.version>
     </properties>
@@ -42,7 +42,7 @@
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-connector-kafka</artifactId>
-            <version>${flink.version}</version>
+            <version>3.2.0-1.18</version>
         </dependency>
 
         <!-- Flink Redis Connector (Bahir) -->
@@ -147,7 +147,7 @@
                             </filters>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.smartcity.traffic.TrafficVehicleCount</mainClass>
+                                    <mainClass>com.traffic.flink.TrafficVehicleCount</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>

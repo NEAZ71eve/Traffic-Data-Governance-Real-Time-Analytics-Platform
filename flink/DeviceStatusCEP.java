@@ -71,7 +71,7 @@ public class DeviceStatusCEP {
         env.setRestartStrategy(RestartStrategies.fixedDelayRestart(3, org.apache.flink.api.common.time.Time.seconds(60)));
 
         Properties props = new Properties();
-        props.setProperty("bootstrap.servers", "kafka:9092");
+        props.setProperty("bootstrap.servers", "traffic-kafka-1:9092");
         props.setProperty("group.id", "device_status_group");
         props.setProperty("enable.auto.commit", "false");
         props.setProperty("auto.offset.reset", "earliest");
@@ -209,14 +209,14 @@ public class DeviceStatusCEP {
 
         // 输出2: Kafka device_alarm Topic（下游告警系统消费）
         Properties producerProps = new Properties();
-        producerProps.setProperty("bootstrap.servers", "kafka:9092");
+        producerProps.setProperty("bootstrap.servers", "traffic-kafka-1:9092");
         allAlerts.addSink(
             new FlinkKafkaProducer<>("device_alarm", new SimpleStringSchema(), producerProps)
         ).name("Kafka Alert Sink").uid("kafka-alert-sink");
 
         // 输出3: Redis实时告警缓存（ZSET按时间排序，HASH存储详情）
         FlinkJedisPoolConfig jedisConfig = new FlinkJedisPoolConfig.Builder()
-            .setHost("redis")
+            .setHost("docker-redis-1")
             .setPort(6379)
             .build();
         allAlerts.addSink(new RedisSink<>(jedisConfig, new AlertRedisMapper()))

@@ -35,3 +35,19 @@ Thumbs.db
 
 # Docker (keep compose files, ignore volumes)
 docker-compose.override.yml
+
+# Java / Maven build artifacts
+flink/target/
+flink/dependency-reduced-pom.xml
+flink/src/
+
+# Generated test data (not committed)
+tmp_hive_data/
+tmp_kafka_data/
+postgresql-42.7.1.jar
+bin/generate_hive_data.py
+bin/generate_kafka_data.py
+bin/fix_compose.py
+
+# Personal files
+resume_*.md

@@ -146,7 +146,7 @@ services:
   # 5. DolphinScheduler — 任务调度
   # ==========================================================================
   dolphinscheduler-api:
-    image: apache/dolphinscheduler:3.2.0-api
+    image: apache/dolphinscheduler:latest
     container_name: traffic-ds-api
     hostname: dolphinscheduler-api
     ports:
@@ -159,13 +159,15 @@ services:
       - DATABASE_PASSWORD=ds123
       - DATABASE_DATABASE=dolphinscheduler
       - TZ=Asia/Shanghai
+    entrypoint: ["/usr/bin/tini", "--", "/root/startup.sh"]
+    command: ["api-server"]
     networks:
       - traffic-prod-net
     depends_on:
       - dolphinscheduler-db
 
   dolphinscheduler-master:
-    image: apache/dolphinscheduler:3.2.0-master
+    image: apache/dolphinscheduler:latest
     container_name: traffic-ds-master
     hostname: dolphinscheduler-master
     environment:
@@ -176,13 +178,16 @@ services:
       - DATABASE_PASSWORD=ds123
       - DATABASE_DATABASE=dolphinscheduler
       - TZ=Asia/Shanghai
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://dolphinscheduler-db:5432/dolphinscheduler
+    entrypoint: ["/usr/bin/tini", "--", "/root/startup.sh"]
+    command: ["master-server"]
     networks:
       - traffic-prod-net
     depends_on:
       - dolphinscheduler-db
 
   dolphinscheduler-worker:
-    image: apache/dolphinscheduler:3.2.0-worker
+    image: apache/dolphinscheduler:latest
     container_name: traffic-ds-worker
     hostname: dolphinscheduler-worker
     environment:
@@ -193,6 +198,8 @@ services:
       - DATABASE_PASSWORD=ds123
       - DATABASE_DATABASE=dolphinscheduler
       - TZ=Asia/Shanghai
+    entrypoint: ["/usr/bin/tini", "--", "/root/startup.sh"]
+    command: ["worker-server"]
     volumes:
       - ./sql:/dolphinscheduler/resources/sql:ro
       - ./python:/dolphinscheduler/resources/python:ro

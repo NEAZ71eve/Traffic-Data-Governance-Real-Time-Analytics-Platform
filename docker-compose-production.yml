@@ -642,8 +642,8 @@ services:
     image: postgres:15-alpine
     container_name: traffic-hive-metastore-db
     hostname: hive-metastore-db
-    ports:
-      - "5432:5432"
+    # ports:
+    #   - "5432:5432"
     environment:
       - POSTGRES_USER=hive
       - POSTGRES_PASSWORD=hive123
@@ -682,6 +682,8 @@ services:
     volumes:
       - ./bin/init_hive_tables.sh:/opt/hive/init_hive_tables.sh:ro
       - ./sql:/opt/hive/sql:ro
+      - ./postgresql-42.7.1.jar:/opt/hive/lib/postgresql-42.7.1.jar:ro
+      - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
     networks:
       - traffic-prod-net
     command: >
@@ -709,6 +711,10 @@ services:
       - HIVE_CONF_hive_server2_enable_doAs=false
     depends_on:
       - hive-metastore
+    volumes:
+      - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./bin/init_hive_tables.sh:/opt/hive/init_hive_tables.sh:ro
+      - ./sql:/opt/hive/sql:ro
     networks:
       - traffic-prod-net
     command: >

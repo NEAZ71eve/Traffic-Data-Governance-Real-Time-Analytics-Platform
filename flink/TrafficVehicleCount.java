@@ -70,7 +70,7 @@ public class TrafficVehicleCount {
         env.setRestartStrategy(RestartStrategies.fixedDelayRestart(3, org.apache.flink.api.common.time.Time.seconds(60)));
 
         Properties props = new Properties();
-        props.setProperty("bootstrap.servers", "kafka:9092");
+        props.setProperty("bootstrap.servers", "traffic-kafka-1:9092");
         props.setProperty("group.id", "traffic_vehicle_group");
         // 防止数据丢失：关闭自动提交，依赖Flink Checkpoint保证Exactly-Once
         props.setProperty("enable.auto.commit", "false");
@@ -116,7 +116,7 @@ public class TrafficVehicleCount {
         // Redis Sink：写入实时结果供Superset消费
         // ==========================================
         FlinkJedisPoolConfig redisConfig = new FlinkJedisPoolConfig.Builder()
-            .setHost("redis")
+            .setHost("docker-redis-1")
             .setPort(6379)
             .build();
 

@@ -58,7 +58,7 @@ public class TrafficCongestionDetection {
         env.setRestartStrategy(RestartStrategies.fixedDelayRestart(3, org.apache.flink.api.common.time.Time.seconds(60)));
 
         Properties props = new Properties();
-        props.setProperty("bootstrap.servers", "kafka:9092");
+        props.setProperty("bootstrap.servers", "traffic-kafka-1:9092");
         props.setProperty("group.id", "traffic_status_group");
         props.setProperty("enable.auto.commit", "false");
         props.setProperty("auto.offset.reset", "earliest");

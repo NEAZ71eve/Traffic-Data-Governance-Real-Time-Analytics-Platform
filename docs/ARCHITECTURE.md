@@ -286,8 +286,28 @@ CRITICAL → 钉钉@所有人 + 短信 + 电话 + 自动生成工单
 
 | 指标 | 数值 | 说明 |
 |------|------|------|
-| 日均处理交通数据 | 500万+ | ODS层日增量 |
-| 数仓表数量 | 20+ | ODS 4 + DIM 4 + DWD 4 + DWS 4 + ADS 4 |
-| 业务指标数 | 60+ | 含ADS层所有指标列 |
-| Flink实时任务 | 3+ | 可横向扩展至10+ |
-| DolphinScheduler调度任务 | 18 | 含ODS→ADS全链路+质量检查+分区清理 |
+| 数仓表数量 | 24 | ODS 7 + DIM 4 + DWD 4 + DWS 4 + ADS 5 |
+| ODS 数据量（测试） | 1,490 行/天 | vehicle 500 + status 240 + device 720 + alarm 30 |
+| Kafka 消息量 | 250,000 条 | 含 vehicle 100K + status 50K + device 100K |
+| Flink 任务数 | 3 作业 (代码就绪) | TrafficVehicleCount 已提交运行 |
+| DolphinScheduler 任务 | 20 个 (配置就绪) | 容器已运行 |
+
+### 9.5 实际部署拓扑
+
+```
+容器名                    镜像                    端口
+────────────────────────────────────────────────────────
+traffic-hdfs-namenode    bde2020/hadoop-namenode    :9870,9000
+traffic-hdfs-dn-1        bde2020/hadoop-datanode    :9864
+traffic-hive-metastore-db  postgres:15-alpine       5432(内网)
+traffic-hive-metastore   apache/hive:4.0.0          :9083
+traffic-hiveserver2      apache/hive:4.0.0          :10000
+traffic-kafka-1          apache/kafka:3.7.0         :9092
+traffic-flink-jm         flink:1.18                 :8081
+traffic-flink-tm         flink:1.18                 -
+traffic-ds-db            postgres:15-alpine         :5433
+traffic-ds-api           apache/dolphinscheduler    :12345
+traffic-ds-master        apache/dolphinscheduler    -
+traffic-ds-worker        apache/dolphinscheduler    -
+docker-redis-1           redis:6                    :6379
+```
