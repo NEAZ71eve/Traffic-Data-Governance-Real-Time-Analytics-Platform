@@ -1,0 +1,720 @@
+{
+  "report_metadata": {
+    "timestamp": "2026-06-15T14:47:32.012553",
+    "project": "数据服务可视化验证",
+    "target_file": "data_service_dashboard.py",
+    "python_version": "3.12.7",
+    "waitress_available": true,
+    "ollama_available": true,
+    "port": 8089,
+    "server_pid": 14600
+  },
+  "phases": {
+    "ENV": [
+      {
+        "check": "Python版本 >= 3.8 (3.12.7)",
+        "status": "PASS",
+        "detail": "3.12.7"
+      },
+      {
+        "check": "Flask已安装",
+        "status": "PASS",
+        "detail": "3.0.3"
+      },
+      {
+        "check": "Waitress已安装",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "端口8089可用",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Ollama在线 (qwen3模型)",
+        "status": "PASS",
+        "detail": "模型: nomic-embed-text:latest, qwen3:8b, deepseek-r1:1.5b"
+      },
+      {
+        "check": "关键文件齐全 (6个)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "旧测试产物已清理",
+        "status": "PASS",
+        "detail": ""
+      }
+    ],
+    "SRV": [
+      {
+        "check": "Waitress启动服务器 (端口8089)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "服务器就绪 (0.0s)",
+        "status": "PASS",
+        "detail": "端口8089响应200"
+      },
+      {
+        "check": "服务器进程存活",
+        "status": "PASS",
+        "detail": "PID=14600"
+      }
+    ],
+    "API": [
+      {
+        "check": "Tab1-数据采集: total_sources==4",
+        "status": "PASS",
+        "detail": "sources=4"
+      },
+      {
+        "check": "Tab1-数据采集: 4个Kafka Topics",
+        "status": "PASS",
+        "detail": "topics=4"
+      },
+      {
+        "check": "Tab1-数据采集: 24小时数据点",
+        "status": "PASS",
+        "detail": "hourly=24"
+      },
+      {
+        "check": "Tab1-数据采集: 4个数据源详情",
+        "status": "PASS",
+        "detail": "sources=4"
+      },
+      {
+        "check": "Tab1-数据采集: active_sources==4",
+        "status": "PASS",
+        "detail": "active=4"
+      },
+      {
+        "check": "Tab1: Topic结构完整",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab1: 小时数据结构",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab1: 高峰时段流量高于低峰",
+        "status": "PASS",
+        "detail": "peak=5085 vs offpeak=747"
+      },
+      {
+        "check": "Tab2-流计算: 3个Flink作业",
+        "status": "PASS",
+        "detail": "jobs=3"
+      },
+      {
+        "check": "Tab2-流计算: checkpoint成功率>90%",
+        "status": "PASS",
+        "detail": "rate=97.7%"
+      },
+      {
+        "check": "Tab2-流计算: 总slots>=12",
+        "status": "PASS",
+        "detail": "slots=16"
+      },
+      {
+        "check": "Tab2: Job结构完整",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab2: 运行中Job≥2 (3/3)",
+        "status": "PASS",
+        "detail": "statuses={'TrafficVehicleCount': 'RUNNING', 'TrafficCongestionDetection': 'RUNNING', 'DeviceStatusCEP': 'RUNNING'} (DeviceStatusCEP可能RESTARTING)"
+      },
+      {
+        "check": "Tab3-离线数仓: total_tables>0",
+        "status": "PASS",
+        "detail": "tables=24"
+      },
+      {
+        "check": "Tab3-离线数仓: ODS层存在",
+        "status": "PASS",
+        "detail": "layers=['ADS', 'DIM', 'DWD', 'DWS', 'ODS']"
+      },
+      {
+        "check": "Tab3-离线数仓: ADS层存在",
+        "status": "PASS",
+        "detail": "layers=['ADS', 'DIM', 'DWD', 'DWS', 'ODS']"
+      },
+      {
+        "check": "Tab3-离线数仓: 5个ETL任务",
+        "status": "PASS",
+        "detail": "tasks=5"
+      },
+      {
+        "check": "Tab3-离线数仓: HDFS容量>0",
+        "status": "PASS",
+        "detail": "capacity=5.0TB"
+      },
+      {
+        "check": "Tab3-离线数仓: 数据量>0",
+        "status": "PASS",
+        "detail": "volume=168.2GB"
+      },
+      {
+        "check": "Tab3: ETL任务结构完整",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab3: HDFS结构完整",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab4-数据质量: score存在",
+        "status": "PASS",
+        "detail": "score=99.9"
+      },
+      {
+        "check": "Tab4-数据质量: tables>0",
+        "status": "PASS",
+        "detail": "tables=7"
+      },
+      {
+        "check": "Tab4-数据质量: trend>0",
+        "status": "PASS",
+        "detail": "trend=7"
+      },
+      {
+        "check": "Tab4-数据质量: 7天趋势数据",
+        "status": "PASS",
+        "detail": "trend_points=7"
+      },
+      {
+        "check": "Tab4-数据质量: completeness均值",
+        "status": "PASS",
+        "detail": "comp=100.0"
+      },
+      {
+        "check": "Tab4-数据质量: uniqueness均值",
+        "status": "PASS",
+        "detail": "uniq=100.0"
+      },
+      {
+        "check": "Tab4-数据质量: validity均值",
+        "status": "PASS",
+        "detail": "valid=99.8"
+      },
+      {
+        "check": "Tab4: 表质量条目结构完整",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab4: 趋势数据结构",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab5-数据血缘: ≥16 nodes",
+        "status": "PASS",
+        "detail": "nodes=20"
+      },
+      {
+        "check": "Tab5-数据血缘: ≥16 edges",
+        "status": "PASS",
+        "detail": "edges=20"
+      },
+      {
+        "check": "Tab5-数据血缘: ODS层存在",
+        "status": "PASS",
+        "detail": "layers=['ADS', 'DIM', 'DWD', 'DWS', 'ODS', 'OTHER']"
+      },
+      {
+        "check": "Tab5-数据血缘: ADS层存在",
+        "status": "PASS",
+        "detail": "layers=['ADS', 'DIM', 'DWD', 'DWS', 'ODS', 'OTHER']"
+      },
+      {
+        "check": "Tab5: 所有边端点有效",
+        "status": "PASS",
+        "detail": "all valid"
+      },
+      {
+        "check": "Tab5: 节点结构完整",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab5: 上游表>0",
+        "status": "PASS",
+        "detail": "up=9"
+      },
+      {
+        "check": "Tab5: 表名正确",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab6-AI助手状态: 8种查询类型",
+        "status": "PASS",
+        "detail": "types=8"
+      },
+      {
+        "check": "Tab6-AI助手状态: ollama_online字段",
+        "status": "PASS",
+        "detail": "ollama_online=True"
+      },
+      {
+        "check": "Tab6-AI助手状态: fallback_engine存在",
+        "status": "PASS",
+        "detail": "engine=NL2SQL规则引擎 (在线)"
+      },
+      {
+        "check": "Tab6: 查询类型结构完整",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab7-全链路: 7个组件运行中",
+        "status": "PASS",
+        "detail": "running=7"
+      },
+      {
+        "check": "Tab7-全链路: 6个管道阶段",
+        "status": "PASS",
+        "detail": "pipeline=6"
+      },
+      {
+        "check": "Tab7-全链路: 7个组件",
+        "status": "PASS",
+        "detail": "components=7"
+      },
+      {
+        "check": "Tab7-全链路: ≥1个告警",
+        "status": "PASS",
+        "detail": "alerts=5"
+      },
+      {
+        "check": "Tab7-全链路: 健康度0-100",
+        "status": "PASS",
+        "detail": "health=100.0"
+      },
+      {
+        "check": "Tab7-全链路: 数据新鲜度<60s",
+        "status": "PASS",
+        "detail": "freshness=5s"
+      },
+      {
+        "check": "Tab7: 管道阶段顺序",
+        "status": "PASS",
+        "detail": "correct"
+      },
+      {
+        "check": "Tab7: 所有阶段运行中",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab7: 组件结构完整",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab7: 告警结构完整",
+        "status": "PASS",
+        "detail": "all have level/severity/message/time"
+      }
+    ],
+    "NL2SQL": [
+      {
+        "check": "NL2SQL: road_jam_rank",
+        "status": "PASS",
+        "detail": "✓ intent=road_jam_rank, rows=5"
+      },
+      {
+        "check": "NL2SQL: road_flow",
+        "status": "PASS",
+        "detail": "✓ intent=road_flow, rows=3"
+      },
+      {
+        "check": "NL2SQL: device_health",
+        "status": "PASS",
+        "detail": "✓ intent=device_health, rows=3"
+      },
+      {
+        "check": "NL2SQL: device_offline",
+        "status": "PASS",
+        "detail": "✓ intent=device_offline, rows=3"
+      },
+      {
+        "check": "NL2SQL: area_congestion",
+        "status": "PASS",
+        "detail": "✓ intent=area_congestion, rows=3"
+      },
+      {
+        "check": "NL2SQL: peak_analysis",
+        "status": "PASS",
+        "detail": "✓ intent=peak_analysis, rows=3"
+      },
+      {
+        "check": "NL2SQL: quality_check",
+        "status": "PASS",
+        "detail": "✓ intent=quality_check, rows=3"
+      },
+      {
+        "check": "NL2SQL: unknown",
+        "status": "PASS",
+        "detail": "✓ intent=unknown, rows=3"
+      },
+      {
+        "check": "通过率: 8/8",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "空问题返回400",
+        "status": "PASS",
+        "detail": "HTTP 400"
+      }
+    ],
+    "HTML": [
+      {
+        "check": "页面>10KB",
+        "status": "PASS",
+        "detail": "size=32027"
+      },
+      {
+        "check": "Content-Type含utf-8",
+        "status": "PASS",
+        "detail": "text/html; charset=utf-8"
+      },
+      {
+        "check": "标题: 数据服务可视化",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "完整title标签",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab函数 load1()",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab函数 load2()",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab函数 load3()",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab函数 load4()",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab函数 load5()",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab函数 load6()",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab函数 load7()",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab容器 #t1",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab容器 #t2",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab容器 #t3",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab容器 #t4",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab容器 #t5",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab容器 #t6",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Tab容器 #t7",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "7个Tab导航按钮",
+        "status": "PASS",
+        "detail": "all present"
+      },
+      {
+        "check": "bar()条形图渲染函数",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "sw()标签切换函数",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "renderLineage()血缘图渲染",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "SVG命名空间 (血缘图)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "15秒自动刷新",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "fetch /api/data_collection",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "fetch /api/stream_processing",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "fetch /api/data_warehouse",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "fetch /api/data_quality",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "fetch /api/data_lineage",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "fetch /api/ai_assistant",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "fetch /api/full_chain",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "CSS 条形图样式 (.bar)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "CSS 管道拓扑样式 (.chain)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "CSS 数仓分层样式 (.layer-flow)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "CSS 血缘图容器 (.lg)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "CSS 血缘图节点样式 (.lnode)",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "状态颜色定义 (绿/蓝/橙/红/青)",
+        "status": "PASS",
+        "detail": "all present"
+      },
+      {
+        "check": "LIVE脉冲动画",
+        "status": "PASS",
+        "detail": ""
+      }
+    ],
+    "VIZ": [
+      {
+        "check": "血缘图层: ODS (4节点)",
+        "status": "PASS",
+        "detail": "count=4"
+      },
+      {
+        "check": "血缘图层: DIM (4节点)",
+        "status": "PASS",
+        "detail": "count=4"
+      },
+      {
+        "check": "血缘图层: DWD (4节点)",
+        "status": "PASS",
+        "detail": "count=4"
+      },
+      {
+        "check": "血缘图层: DWS (4节点)",
+        "status": "PASS",
+        "detail": "count=4"
+      },
+      {
+        "check": "血缘图层: ADS (4节点)",
+        "status": "PASS",
+        "detail": "count=4"
+      },
+      {
+        "check": "血缘图5层齐全",
+        "status": "PASS",
+        "detail": "layers=['ADS', 'DIM', 'DWD', 'DWS', 'ODS']"
+      },
+      {
+        "check": "血缘图节点总数=20",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "Kafka总吞吐量>0",
+        "status": "PASS",
+        "detail": "total=10882msgs/s"
+      },
+      {
+        "check": "24小时全覆盖 (0-23)",
+        "status": "PASS",
+        "detail": "complete"
+      },
+      {
+        "check": "管道阶段: 传感器→Kafka→Flink→HDFS/Hive→数据质量→仪表盘",
+        "status": "PASS",
+        "detail": ""
+      },
+      {
+        "check": "所有组件运行中 (绿色状态)",
+        "status": "PASS",
+        "detail": "all green"
+      },
+      {
+        "check": "3个预期Flink作业名称",
+        "status": "PASS",
+        "detail": "all match"
+      },
+      {
+        "check": "质量趋势: 7天连续数据",
+        "status": "PASS",
+        "detail": "2026-06-03~2026-06-09"
+      },
+      {
+        "check": "ETL成功率: 5/5",
+        "status": "PASS",
+        "detail": "statuses={'ODS_Ingestion': 'success', 'DWD_Cleaning': 'success', 'DWS_Aggregation': 'success', 'ADS_Indicators': 'success', 'Data_Quality': 'success'}"
+      }
+    ],
+    "PERF": [
+      {
+        "check": "GET /api/data_collection: 11ms",
+        "status": "PASS",
+        "detail": "11ms ✓"
+      },
+      {
+        "check": "GET /api/stream_processing: 15ms",
+        "status": "PASS",
+        "detail": "15ms ✓"
+      },
+      {
+        "check": "GET /api/data_warehouse: 15ms",
+        "status": "PASS",
+        "detail": "15ms ✓"
+      },
+      {
+        "check": "GET /api/data_quality: 16ms",
+        "status": "PASS",
+        "detail": "16ms ✓"
+      },
+      {
+        "check": "GET /api/data_lineage: 0ms",
+        "status": "PASS",
+        "detail": "0ms ✓"
+      },
+      {
+        "check": "GET /api/ai_assistant: 2066ms",
+        "status": "PASS",
+        "detail": "2066ms ✓"
+      },
+      {
+        "check": "GET /api/full_chain: 0ms",
+        "status": "PASS",
+        "detail": "0ms ✓"
+      },
+      {
+        "check": "POST /api/ai_assistant/query: 18ms",
+        "status": "PASS",
+        "detail": "18ms ✓"
+      },
+      {
+        "check": "GET / (HTML page): 21ms",
+        "status": "PASS",
+        "detail": "21ms ✓"
+      },
+      {
+        "check": "平均响应时间",
+        "status": "PASS",
+        "detail": "avg=240ms"
+      },
+      {
+        "check": "最慢端点: GET /api/ai_assistant",
+        "status": "PASS",
+        "detail": "2066ms"
+      },
+      {
+        "check": "并发请求 (3/3 完成)",
+        "status": "PASS",
+        "detail": "times=['0ms', '0ms', '21ms']"
+      },
+      {
+        "check": "数据同小时内稳定 (确定性)",
+        "status": "PASS",
+        "detail": "stable (seed by hour)"
+      }
+    ]
+  },
+  "summary": {
+    "total_checks": 137,
+    "passed": 137,
+    "failed": 0,
+    "pass_rate": 100.0,
+    "verdict": "PASS"
+  }
+}

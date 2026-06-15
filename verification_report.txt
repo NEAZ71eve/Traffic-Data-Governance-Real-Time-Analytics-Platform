@@ -1,0 +1,162 @@
+============================================================
+  数据服务可视化 — 自动验证报告
+  时间: 2026-06-15 14:47:32
+  Python: 3.12.7 | Waitress: True | Ollama: True
+============================================================
+
+
+--- ENV ---
+  [PASS] Python版本 >= 3.8 (3.12.7)  (3.12.7)
+  [PASS] Flask已安装  (3.0.3)
+  [PASS] Waitress已安装
+  [PASS] 端口8089可用
+  [PASS] Ollama在线 (qwen3模型)  (模型: nomic-embed-text:latest, qwen3:8b, deepseek-r1:1.5b)
+  [PASS] 关键文件齐全 (6个)
+  [PASS] 旧测试产物已清理
+
+--- SRV ---
+  [PASS] Waitress启动服务器 (端口8089)
+  [PASS] 服务器就绪 (0.0s)  (端口8089响应200)
+  [PASS] 服务器进程存活  (PID=14600)
+
+--- API ---
+  [PASS] Tab1-数据采集: total_sources==4  (sources=4)
+  [PASS] Tab1-数据采集: 4个Kafka Topics  (topics=4)
+  [PASS] Tab1-数据采集: 24小时数据点  (hourly=24)
+  [PASS] Tab1-数据采集: 4个数据源详情  (sources=4)
+  [PASS] Tab1-数据采集: active_sources==4  (active=4)
+  [PASS] Tab1: Topic结构完整
+  [PASS] Tab1: 小时数据结构
+  [PASS] Tab1: 高峰时段流量高于低峰  (peak=5085 vs offpeak=747)
+  [PASS] Tab2-流计算: 3个Flink作业  (jobs=3)
+  [PASS] Tab2-流计算: checkpoint成功率>90%  (rate=97.7%)
+  [PASS] Tab2-流计算: 总slots>=12  (slots=16)
+  [PASS] Tab2: Job结构完整
+  [PASS] Tab2: 运行中Job≥2 (3/3)  (statuses={'TrafficVehicleCount': 'RUNNING', 'TrafficCongestionDetection': 'RUNNING', 'DeviceStatusCEP': 'RUNNING'} (DeviceStatusCEP可能RESTARTING))
+  [PASS] Tab3-离线数仓: total_tables>0  (tables=24)
+  [PASS] Tab3-离线数仓: ODS层存在  (layers=['ADS', 'DIM', 'DWD', 'DWS', 'ODS'])
+  [PASS] Tab3-离线数仓: ADS层存在  (layers=['ADS', 'DIM', 'DWD', 'DWS', 'ODS'])
+  [PASS] Tab3-离线数仓: 5个ETL任务  (tasks=5)
+  [PASS] Tab3-离线数仓: HDFS容量>0  (capacity=5.0TB)
+  [PASS] Tab3-离线数仓: 数据量>0  (volume=168.2GB)
+  [PASS] Tab3: ETL任务结构完整
+  [PASS] Tab3: HDFS结构完整
+  [PASS] Tab4-数据质量: score存在  (score=99.9)
+  [PASS] Tab4-数据质量: tables>0  (tables=7)
+  [PASS] Tab4-数据质量: trend>0  (trend=7)
+  [PASS] Tab4-数据质量: 7天趋势数据  (trend_points=7)
+  [PASS] Tab4-数据质量: completeness均值  (comp=100.0)
+  [PASS] Tab4-数据质量: uniqueness均值  (uniq=100.0)
+  [PASS] Tab4-数据质量: validity均值  (valid=99.8)
+  [PASS] Tab4: 表质量条目结构完整
+  [PASS] Tab4: 趋势数据结构
+  [PASS] Tab5-数据血缘: ≥16 nodes  (nodes=20)
+  [PASS] Tab5-数据血缘: ≥16 edges  (edges=20)
+  [PASS] Tab5-数据血缘: ODS层存在  (layers=['ADS', 'DIM', 'DWD', 'DWS', 'ODS', 'OTHER'])
+  [PASS] Tab5-数据血缘: ADS层存在  (layers=['ADS', 'DIM', 'DWD', 'DWS', 'ODS', 'OTHER'])
+  [PASS] Tab5: 所有边端点有效  (all valid)
+  [PASS] Tab5: 节点结构完整
+  [PASS] Tab5: 上游表>0  (up=9)
+  [PASS] Tab5: 表名正确
+  [PASS] Tab6-AI助手状态: 8种查询类型  (types=8)
+  [PASS] Tab6-AI助手状态: ollama_online字段  (ollama_online=True)
+  [PASS] Tab6-AI助手状态: fallback_engine存在  (engine=NL2SQL规则引擎 (在线))
+  [PASS] Tab6: 查询类型结构完整
+  [PASS] Tab7-全链路: 7个组件运行中  (running=7)
+  [PASS] Tab7-全链路: 6个管道阶段  (pipeline=6)
+  [PASS] Tab7-全链路: 7个组件  (components=7)
+  [PASS] Tab7-全链路: ≥1个告警  (alerts=5)
+  [PASS] Tab7-全链路: 健康度0-100  (health=100.0)
+  [PASS] Tab7-全链路: 数据新鲜度<60s  (freshness=5s)
+  [PASS] Tab7: 管道阶段顺序  (correct)
+  [PASS] Tab7: 所有阶段运行中
+  [PASS] Tab7: 组件结构完整
+  [PASS] Tab7: 告警结构完整  (all have level/severity/message/time)
+
+--- NL2SQL ---
+  [PASS] NL2SQL: road_jam_rank  (✓ intent=road_jam_rank, rows=5)
+  [PASS] NL2SQL: road_flow  (✓ intent=road_flow, rows=3)
+  [PASS] NL2SQL: device_health  (✓ intent=device_health, rows=3)
+  [PASS] NL2SQL: device_offline  (✓ intent=device_offline, rows=3)
+  [PASS] NL2SQL: area_congestion  (✓ intent=area_congestion, rows=3)
+  [PASS] NL2SQL: peak_analysis  (✓ intent=peak_analysis, rows=3)
+  [PASS] NL2SQL: quality_check  (✓ intent=quality_check, rows=3)
+  [PASS] NL2SQL: unknown  (✓ intent=unknown, rows=3)
+  [PASS] 通过率: 8/8
+  [PASS] 空问题返回400  (HTTP 400)
+
+--- HTML ---
+  [PASS] 页面>10KB  (size=32027)
+  [PASS] Content-Type含utf-8  (text/html; charset=utf-8)
+  [PASS] 标题: 数据服务可视化
+  [PASS] 完整title标签
+  [PASS] Tab函数 load1()
+  [PASS] Tab函数 load2()
+  [PASS] Tab函数 load3()
+  [PASS] Tab函数 load4()
+  [PASS] Tab函数 load5()
+  [PASS] Tab函数 load6()
+  [PASS] Tab函数 load7()
+  [PASS] Tab容器 #t1
+  [PASS] Tab容器 #t2
+  [PASS] Tab容器 #t3
+  [PASS] Tab容器 #t4
+  [PASS] Tab容器 #t5
+  [PASS] Tab容器 #t6
+  [PASS] Tab容器 #t7
+  [PASS] 7个Tab导航按钮  (all present)
+  [PASS] bar()条形图渲染函数
+  [PASS] sw()标签切换函数
+  [PASS] renderLineage()血缘图渲染
+  [PASS] SVG命名空间 (血缘图)
+  [PASS] 15秒自动刷新
+  [PASS] fetch /api/data_collection
+  [PASS] fetch /api/stream_processing
+  [PASS] fetch /api/data_warehouse
+  [PASS] fetch /api/data_quality
+  [PASS] fetch /api/data_lineage
+  [PASS] fetch /api/ai_assistant
+  [PASS] fetch /api/full_chain
+  [PASS] CSS 条形图样式 (.bar)
+  [PASS] CSS 管道拓扑样式 (.chain)
+  [PASS] CSS 数仓分层样式 (.layer-flow)
+  [PASS] CSS 血缘图容器 (.lg)
+  [PASS] CSS 血缘图节点样式 (.lnode)
+  [PASS] 状态颜色定义 (绿/蓝/橙/红/青)  (all present)
+  [PASS] LIVE脉冲动画
+
+--- VIZ ---
+  [PASS] 血缘图层: ODS (4节点)  (count=4)
+  [PASS] 血缘图层: DIM (4节点)  (count=4)
+  [PASS] 血缘图层: DWD (4节点)  (count=4)
+  [PASS] 血缘图层: DWS (4节点)  (count=4)
+  [PASS] 血缘图层: ADS (4节点)  (count=4)
+  [PASS] 血缘图5层齐全  (layers=['ADS', 'DIM', 'DWD', 'DWS', 'ODS'])
+  [PASS] 血缘图节点总数=20
+  [PASS] Kafka总吞吐量>0  (total=10882msgs/s)
+  [PASS] 24小时全覆盖 (0-23)  (complete)
+  [PASS] 管道阶段: 传感器→Kafka→Flink→HDFS/Hive→数据质量→仪表盘
+  [PASS] 所有组件运行中 (绿色状态)  (all green)
+  [PASS] 3个预期Flink作业名称  (all match)
+  [PASS] 质量趋势: 7天连续数据  (2026-06-03~2026-06-09)
+  [PASS] ETL成功率: 5/5  (statuses={'ODS_Ingestion': 'success', 'DWD_Cleaning': 'success', 'DWS_Aggregation': 'success', 'ADS_Indicators': 'success', 'Data_Quality': 'success'})
+
+--- PERF ---
+  [PASS] GET /api/data_collection: 11ms  (11ms ✓)
+  [PASS] GET /api/stream_processing: 15ms  (15ms ✓)
+  [PASS] GET /api/data_warehouse: 15ms  (15ms ✓)
+  [PASS] GET /api/data_quality: 16ms  (16ms ✓)
+  [PASS] GET /api/data_lineage: 0ms  (0ms ✓)
+  [PASS] GET /api/ai_assistant: 2066ms  (2066ms ✓)
+  [PASS] GET /api/full_chain: 0ms  (0ms ✓)
+  [PASS] POST /api/ai_assistant/query: 18ms  (18ms ✓)
+  [PASS] GET / (HTML page): 21ms  (21ms ✓)
+  [PASS] 平均响应时间  (avg=240ms)
+  [PASS] 最慢端点: GET /api/ai_assistant  (2066ms)
+  [PASS] 并发请求 (3/3 完成)  (times=['0ms', '0ms', '21ms'])
+  [PASS] 数据同小时内稳定 (确定性)  (stable (seed by hour))
+
+============================================================
+  结果: 137/137 通过 (100.0%)
+  判定: ✓ 全部通过
+============================================================

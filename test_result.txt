@@ -1,0 +1,6 @@
+Intent: road_jam_rank
+SQL length: 10
+SQL hex (first 100): 2d2d20e697a0e6b395e7949fe6889053514c
+SQL:
+-- 无法生成SQL
+Has SELECT: False

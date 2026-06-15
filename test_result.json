@@ -1,0 +1,1 @@
+{"intent":"road_jam_rank","question":"\u6628\u5929\u6700\u62e5\u5835\u76845\u6761\u8def","result":{"columns":["road_name","traffic_count","avg_speed"],"execution_time_ms":446,"row_count":3,"rows":[["\u957f\u5b89\u8857",7632,34.7],["\u4e1c\u4e09\u73af\u8def",7543,33.1],["\u6df1\u5357\u5927\u9053",6511,42.4]]},"sql":"-- \u65e0\u6cd5\u751f\u6210SQL"}
