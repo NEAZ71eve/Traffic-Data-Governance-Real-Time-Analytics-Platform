@@ -47,10 +47,13 @@
 | **消息队列** | Apache Kafka 3.7.0 | KRaft 单节点，4 Topic | ✅ 真实容器运行 |
 | **实时计算** | Apache Flink 1.18.1 | JobManager + TaskManager (4 Slot) | ✅ 真实容器运行 |
 | **任务调度** | Apache DolphinScheduler 2.0.5 | API + Master + Worker 三节点 | ✅ 真实容器运行 |
-| **数据采集** | DataX / Maxwell / Flume | 配置就绪 | ⚠️ 配置就绪 |
+| **数据采集** | DataX / Maxwell / Flume | 配置就绪 | ✅ 配置就绪 |
 | **实时缓存** | Redis 7 | Flink Sink 实时指标 | ✅ 接入网络 |
 | **数据治理** | Python 自研 | 质量/血缘/异常检测 | ✅ 独立可运行 |
-| **可视化** | Superset / Flask | 4套看板 / Flask仪表盘 | ⚠️ 设计完成 |
+| **可视化** | Superset / Flask | 4套看板 / Flask仪表盘 | ✅ 自动配置脚本 |
+| **集群监控** | Prometheus + Grafana | 11面板运维大屏 + 10条告警规则 | ✅ 一键启动 |
+| **日志收集** | ELK (ES + Logstash + Kibana) | 全组件日志聚合 | ✅ 一键启动 |
+| **告警通知** | DingTalk / Email / SMS | 告警分发引擎 + Webhook模拟器 | ✅ 一键启动 |
 | **AI 辅助** | LangChain + DeepSeek | NL2SQL / ETL生成 | ✅ 6/6模块通过 |
 
 ---
@@ -60,13 +63,14 @@
 ```
 Traffic-Data-Governance-Real-Time-Analytics-Platform/
 │
-├── config/                              # 配置中心 (6个JSON)
+├── config/                              # 配置中心 (7个配置)
 │   ├── kafka_topics.json                #   Kafka Topic & 消费者组
 │   ├── hive_config.json                 #   Hive 连接参数
 │   ├── dolphinscheduler_config.json     #   调度工作流 & 回溯策略
 │   ├── metrics_thresholds.json          #   业务指标阈值 (拥堵/健康/质量)
 │   ├── alert_config.json                #   告警渠道 (钉钉/邮件/短信)
-│   └── data_permission.json             #   权限矩阵 (Ranger/Superset)
+│   ├── data_permission.json             #   权限矩阵 (Ranger/Superset)
+│   └── superset_setup.json             #   Superset 自动配置清单 (运行 bin/setup_superset.py 生成)
 │
 ├── sql/                                 # 数仓SQL (24个脚本, DDL+ETL)
 │   ├── ods/  (7)                         #   ODS 原始数据层 → TEXTFILE
@@ -75,45 +79,69 @@ Traffic-Data-Governance-Real-Time-Analytics-Platform/
 │   ├── dws/  (4)                         #   DWS 轻度汇总层 → 小时/天聚合
 │   └── ads/  (5)                         #   ADS 应用指标层 → 看板指标
 │
-├── flink/                               # 实时计算 (3个Java作业)
-│   ├── TrafficVehicleCount.java          #   车流统计 → Redis
-│   ├── TrafficCongestionDetection.java   #   拥堵检测 → Kafka + 流量突增
-│   ├── DeviceStatusCEP.java              #   CEP异常检测 → 离线/CPU/温度
-│   └── pom.xml                           #   Maven 依赖配置
+├── flink/                               # 实时计算 (Maven项目)
+│   ├── pom.xml                           #   Maven 依赖配置
+│   └── src/main/java/com/traffic/flink/  #   3个Flink作业源码
+│       ├── TrafficVehicleCount.java      #   车流统计 → Redis
+│       ├── TrafficCongestionDetection.java # 拥堵检测 → Kafka
+│       └── DeviceStatusCEP.java          #   CEP异常检测 → Kafka
 │
-├── python/                              # 数据治理 & AI (6个Python模块)
+├── python/                              # 数据治理 & AI (8个模块)
 │   ├── data_quality_monitor.py           #   质量监控 + 钉钉/邮件告警
 │   ├── data_lineage.py                   #   血缘追踪 + 影响分析
 │   ├── ai_etl_generator.py               #   AI ETL生成 + NL2SQL
 │   ├── ai_anomaly_detector.py            #   Isolation Forest 异常检测
 │   ├── hive_optimizer.py                 #   Hive 小文件治理 + 优化建议
-│   └── nl2sql_enhanced.py               #   自然语言转SQL增强版
+│   ├── nl2sql_enhanced.py               #   自然语言转SQL增强版
+│   ├── alert_dispatcher.py              #   🆕 告警分发引擎 (去重+升级+日汇总)
+│   └── alert_webhook_server.py          #   🆕 Webhook模拟器 (本地开发)
 │
-├── docs/                                # 文档中心
+├── prometheus/                          # 🆕 集群监控
+│   ├── prometheus.yml                   #   Prometheus采集配置 (14 Job)
+│   ├── alert_rules.yml                  #   告警规则 (10条)
+│   └── alertmanager.yml                #   告警路由与通知
+│
+├── grafana/                             # 🆕 Grafana可视化
+│   ├── dashboards/
+│   │   └── traffic-platform-overview.json # 运维监控大屏 (11面板)
+│   └── provisioning/                     #   数据源+仪表盘自动加载
+│
+├── logstash/                            # 🆕 ELK日志管道
+│   ├── config/logstash.yml
+│   └── pipeline/traffic-logs.conf       #   日志解析→ES
+│
+├── bin/                                 # 运维脚本 (10个)
+│   ├── deploy-all.sh                    #   🆕 Linux/Mac 一键部署
+│   ├── deploy-all.ps1                   #   🆕 Windows PowerShell 一键部署
+│   ├── deploy-production.sh             #   第一阶段部署 (核心集群)
+│   ├── deploy-phase2.sh                 #   第二阶段部署 (采集+可视化)
+│   ├── setup_superset.py               #   🆕 Superset看板自动配置
+│   ├── scd2_etl.sh                      #   SCD2拉链表ETL
+│   ├── verify_optimizations.sh          #   工程优化验证
+│   └── ...                             #   更多辅助脚本
+│
+├── docs/                                # 文档中心 (9个文档)
 │   ├── INTRODUCTION.md                   #   项目介绍手册 (新人必读)
 │   ├── PROJECT_STRUCTURE.md              #   项目结构说明
 │   ├── ARCHITECTURE.md                   #   架构设计文档 (技术细节)
 │   ├── RUNBOOK.md                        #   运维操作手册
 │   ├── BI_DASHBOARDS.md                  #   Superset看板设计 + 面试话术
-│   └── AI_MODULE_DESIGN.md               #   AI模块选型与边界
+│   ├── AI_MODULE_DESIGN.md               #   AI模块选型与边界
+│   ├── VERIFICATION_REPORT.md            #   17项验证报告
+│   └── DEPLOYMENT_STATUS_UPDATE.md       #   部署状态更新
 │
 ├── pseudo_distributed/                   # 伪分布式本地运行 (10个测试脚本)
-│   ├── setup_all.py                      #   一键安装 Kafka+Flink+Redis
-│   ├── start_all.py / stop_all.py        #   一键启停所有服务
-│   ├── test_kafka.py                     #   Kafka 生产/消费验证
-│   ├── test_flink.py                     #   Flink Standalone 集群验证
-│   ├── test_redis.py                     #   Redis 读写验证
-│   ├── test_hive_sql.py                  #   SQLite 执行 20+ SQL 查询
-│   ├── test_hdfs.py                      #   本地 FS 模拟 HDFS 5层分区
-│   ├── test_scheduler.py                 #   轻量调度器 (14 任务 DAG)
-│   └── test_pipeline.py                  #   端到端全链路测试 (7/7 PASS)
-│
-├── dashboard_app.py  dashboard.html      # Flask 统一仪表盘 (6 Tab, 零CDN)
+├── dashboard_app.py                      # Flask 统一仪表盘 (6 Tab, 零CDN)
 ├── demo_full_pipeline.py                 # 全流程模拟演示 (零依赖)
 ├── test_all_ai_modules.py                # AI 模块一键验证 (6/6 PASS)
 │
-├── bin/ datax/ flume/ maxwell/          # 配套设施
-├── mysql/ redis/                        # 配置模板
+├── docker-compose.yml                    # 快速模式编排 (5容器)
+├── docker-compose-production.yml         # 生产集群编排 (17容器)
+├── docker-compose-phase2.yml            # 数据采集+可视化编排 (7容器)
+├── docker-compose-monitoring.yml        # 🆕 监控栈编排 (6容器)
+├── docker-compose-elk.yml              # 🆕 ELK日志栈编排 (3容器)
+├── promtail-config.yml                  # 🆕 Docker日志采集配置
+├── Makefile                              # 🆕 25个快捷命令
 └── README.md                             # 本文档
 ```
 
@@ -199,7 +227,24 @@ traffic-ds-db                      :5433       ✅ 运行
 docker-redis-1                     :6379       ✅ 运行
 ```
 
-### 一键启动（Docker Compose — 真实部署）
+### 一键启动（推荐）
+
+```powershell
+# Windows PowerShell
+.\bin\deploy-all.ps1 quickstart    # 30秒快速体验 (5容器)
+.\bin\deploy-all.ps1 deploy        # 完整生产部署 (24容器)
+.\bin\deploy-all.ps1 status        # 查看服务状态
+.\bin\deploy-all.ps1 verify        # 全链路验证
+```
+
+```bash
+# Git Bash / Linux / macOS
+bash bin/deploy-all.sh quickstart
+bash bin/deploy-all.sh deploy
+bash bin/deploy-all.sh verify
+```
+
+### 分步启动（Docker Compose）
 
 ```bash
 # 1. 启动 HDFS
@@ -225,8 +270,13 @@ docker compose -p traffic -f docker-compose-phase2.yml up -d dolphinscheduler-db
 | HiveServer2 | :10000 (beeline) | `beeline -u jdbc:hive2://localhost:10000` |
 | Flink WebUI | http://localhost:8081 | Flink 作业管理 |
 | Kafka | :9092 | `kafka-topics.sh --list` |
-| DolphinScheduler | http://localhost:12345 | DS 管理界面 |
+| DolphinScheduler | http://localhost:12345 | DS 管理界面 (admin/dolphinscheduler123) |
+| Superset | http://localhost:8088 | 可视化看板 (admin/admin123) |
 | Redis | :6379 | `redis-cli KEYS 'traffic:*'` |
+| **Grafana** | **http://localhost:3000** | **运维监控大屏 (admin/admin)** |
+| **Prometheus** | **http://localhost:9090** | **指标采集与告警** |
+| **Kibana** | **http://localhost:5601** | **日志检索** |
+| **Alert Webhook** | **http://localhost:9999/history** | **告警历史查看** |
 
 ### 零依赖演示 (30秒)
 

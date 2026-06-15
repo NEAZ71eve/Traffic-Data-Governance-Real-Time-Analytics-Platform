@@ -1,6 +1,6 @@
 # 智慧城市交通数据治理与实时分析平台 — 项目结构
 
-> 最后更新：2026-06-09 | 版本 v2.0 — 与代码仓库完全对齐
+> 最后更新：2026-06-15 | 版本 v3.0 — 含监控+日志+告警完整栈
 
 ---
 
@@ -9,7 +9,7 @@
 ```
 traffic-platform/
 │
-├── config/                              # 配置中心 (6个JSON)
+├── config/                              # 配置中心 (7个配置)
 │   ├── kafka_topics.json                #   Kafka Topic & 消费者组设计
 │   ├── hive_config.json                 #   Hive 连接参数 & JDBC URL
 │   ├── dolphinscheduler_config.json     #   18个任务DAG工作流 & 回溯策略
@@ -48,27 +48,46 @@ traffic-platform/
 │       ├── ads_device_mtbf_mttr.sql     #     MTBF/MTTR 设备可靠性
 │       └── ads_device_fault_top.sql     #     故障TOP10设备
 │
-├── flink/                               # 实时计算 (3个Java作业 + POM)
-│   ├── TrafficVehicleCount.java          #   车流统计 → Redis (5min窗口 + Watermark)
-│   ├── TrafficCongestionDetection.java   #   拥堵检测 → Kafka (KeyedState + EMA)
-│   ├── DeviceStatusCEP.java              #   CEP设备异常 (3条OFFLINE/CPU>90%/温度>80°C)
-│   └── pom.xml                           #   Maven 依赖 (Flink 1.18 / Jedis / Kafka)
+├── flink/                               # 实时计算 (Maven项目)
+│   ├── pom.xml                           #   Maven 依赖 (Flink 1.18 / Jedis / Kafka)
+│   └── src/main/java/com/traffic/flink/  #
+│       ├── TrafficVehicleCount.java      #   车流统计 → Redis (5min窗口 + Watermark)
+│       ├── TrafficCongestionDetection.java # 拥堵检测 → Kafka (KeyedState + EMA)
+│       └── DeviceStatusCEP.java          #   CEP设备异常 (3条OFFLINE/CPU>90%/温度>80°C)
 │
-├── python/                              # 数据治理 & AI (6个模块)
+├── python/                              # 数据治理 & AI (8个模块)
 │   ├── data_quality_monitor.py           #   四维质量监控 (完整/唯一/合法/时效) + 告警推送
 │   ├── data_lineage.py                   #   数据血缘追踪 (表级+字段级, DFS递归)
 │   ├── ai_etl_generator.py               #   AI ETL SQL 生成 (Jinja2模板引擎)
 │   ├── ai_anomaly_detector.py            #   Isolation Forest 异常检测 (3类)
 │   ├── hive_optimizer.py                 #   Hive 小文件治理 & 优化建议
-│   └── nl2sql_enhanced.py               #   NL2SQL 自然语言转SQL (8种意图)
+│   ├── nl2sql_enhanced.py               #   NL2SQL 自然语言转SQL (8种意图)
+│   ├── alert_dispatcher.py              #   🆕 告警分发引擎 (去重+升级+日汇总)
+│   └── alert_webhook_server.py          #   🆕 Webhook模拟器 (本地开发调试)
 │
-├── docs/                                # 文档中心 (6份)
-│   ├── INTRODUCTION.md                   #   项目介绍手册 (11章/680行, 新人必读)
+├── prometheus/                          # 🆕 集群监控配置
+│   ├── prometheus.yml                   #   Prometheus 采集 (14 Job)
+│   ├── alert_rules.yml                  #   告警规则 (10条)
+│   └── alertmanager.yml                #   告警路由与抑制
+│
+├── grafana/                             # 🆕 可视化监控
+│   ├── dashboards/
+│   │   └── traffic-platform-overview.json # 运维监控大屏 (11面板)
+│   └── provisioning/                     #   数据源+仪表盘自动加载
+│
+├── logstash/                            # 🆕 日志处理
+│   ├── config/logstash.yml
+│   └── pipeline/traffic-logs.conf       #   日志解析管道
+│
+├── docs/                                # 文档中心 (8份)
+│   ├── INTRODUCTION.md                   #   项目介绍手册 (新人必读)
 │   ├── PROJECT_STRUCTURE.md              #   项目结构说明 (本文档)
-│   ├── ARCHITECTURE.md                   #   架构设计文档 (9章技术细节)
-│   ├── RUNBOOK.md                        #   运维操作手册 (16章, 部署→故障→调优)
+│   ├── ARCHITECTURE.md                   #   架构设计文档 (技术细节)
+│   ├── RUNBOOK.md                        #   运维操作手册 (部署→故障→监控)
 │   ├── BI_DASHBOARDS.md                  #   前端看板手册 (4套大屏 + 面试话术)
-│   └── AI_MODULE_DESIGN.md               #   AI模块选型 & 评估 & 安全边界
+│   ├── AI_MODULE_DESIGN.md               #   AI模块选型 & 评估 & 安全边界
+│   ├── VERIFICATION_REPORT.md            #   17项验证报告
+│   └── DEPLOYMENT_STATUS_UPDATE.md       #   部署整改状态
 │
 ├── pseudo_distributed/                   # 伪分布式本地运行 (10个脚本, 单机可跑)
 │   ├── setup_all.py                      #   一键安装 Kafka+Flink+Redis 依赖
@@ -89,15 +108,18 @@ traffic-platform/
 │   ├── init_containers.py                #   创建 Kafka Topics + Redis 健康检查
 │   └── entrypoint.sh                     #   容器入口脚本
 │
-├── bin/                                  # Shell 运维脚本 (8个)
+├── bin/                                  # Shell + PS 运维脚本 (11个)
+│   ├── deploy-all.sh                     #   🆕 一键全栈部署 (bash)
+│   ├── deploy-all.ps1                    #   🆕 一键全栈部署 (PowerShell)
+│   ├── setup_superset.py                #   🆕 Superset 看板自动配置
+│   ├── deploy-production.sh             #   第一阶段生产集群
+│   ├── deploy-phase2.sh                 #   第二阶段数据采集
 │   ├── setup_kafka_topics.sh             #   Kafka Topic 创建
 │   ├── init_hive_tables.sh               #   Hive 数仓表初始化
 │   ├── run_etl.sh                        #   天级 ETL 任务执行
-│   ├── data_replay.sh                    #   数据回溯重放
-│   ├── datax_sync.sh                     #   DataX 全量同步
-│   ├── start_maxwell.sh                  #   Maxwell CDC 启动
-│   ├── start_all_flume.sh                #   Flume 日志采集启动
-│   └── partition_cleanup.sh              #   过期分区清理
+│   ├── scd2_etl.sh                      #   SCD2 拉链表 ETL
+│   ├── verify_optimizations.sh          #   工程优化验证
+│   └── ...                             #   更多辅助脚本
 │
 ├── datax/                                # DataX 配置 (3个)
 │   ├── road_to_hive.json                 #   道路维表→Hive
@@ -106,19 +128,23 @@ traffic-platform/
 │
 ├── flume/ maxwell/ mysql/ redis/        # 配套设施配置
 │
-├── docker-compose.yml                    # 5容器编排 (Kafka+Redis+Flink+App)
+├── docker-compose.yml                    # 快速模式编排 (5容器)
+├── docker-compose-production.yml         # 生产集群编排 (17容器)
+├── docker-compose-phase2.yml            # 数据采集+可视化 (7容器)
+├── docker-compose-monitoring.yml        # 🆕 监控栈 (6容器)
+├── docker-compose-elk.yml              # 🆕 ELK日志栈 (3容器)
+├── promtail-config.yml                  # 🆕 Docker日志采集
 ├── Dockerfile.app                        # Python 应用镜像
-├── Makefile                              # 一键命令 (make up/build/demo/test/clean)
+├── Makefile                              # 25个快捷命令
 ├── requirements.txt                      # Python 依赖清单
 ├── .gitignore                            # Git 忽略规则
 ├── .dockerignore                         # Docker 忽略规则
 │
-├── dashboard_app.py                      # Flask 统一仪表盘 (6 Tab, 零CDN)
-├── dashboard.html                        # 仪表盘 HTML 模板
+├── dashboard_app.py                      # Flask 统一仪表盘 (6 Tab, 动态日期, 真实服务检测)
 ├── demo_full_pipeline.py                 # 全流程演示 (零依赖, 8阶段)
 ├── test_all_ai_modules.py                # AI 模块一键验证 (6/6 PASS)
 │
-└── README.md                             # 项目主文档 (本文档入口)
+└── README.md                             # 项目主文档
 ```
 
 ---

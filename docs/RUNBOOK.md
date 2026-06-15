@@ -1075,4 +1075,89 @@ print(sql)
 [遗留问题]
 
 [交接备注]
+
+---
+
+## 十三、监控与告警操作（v3.1 新增）
+
+### 13.1 一键启动监控栈
+
+```bash
+# 启动 Prometheus + Grafana + Loki + Promtail + AlertManager
+make monitor-up
+
+# 或手动:
+docker compose -f docker-compose-monitoring.yml up -d
+```
+
+**访问地址**:
+| 服务 | 地址 | 账号 |
+|------|------|------|
+| Grafana 运维大屏 | http://localhost:3000 | admin / admin |
+| Prometheus 指标 | http://localhost:9090 | - |
+| AlertManager 告警 | http://localhost:9093 | - |
+
+### 13.2 Prometheus 告警规则
+
+| 规则ID | 告警名称 | 触发条件 | 级别 |
+|--------|---------|---------|------|
+| ServiceDown | 服务不可用 | `up == 0` 持续2分钟 | CRITICAL |
+| FlinkJM-Down | Flink JM 宕机 | JM 不可达1分钟 | CRITICAL |
+| KafkaLag-High | Kafka 消费积压 | Lag > 10000 | MAJOR |
+| RedisNode-Down | Redis 节点不可用 | 节点 down 2分钟 | MAJOR |
+| HDFS-NameNode-Down | NameNode 不可用 | NN down 2分钟 | CRITICAL |
+| Flink-Checkpoint-Fail | Checkpoint 超时 | 耗时 > 5分钟 | MAJOR |
+| CPU-High | CPU 使用率高 | > 90% 持续10分钟 | WARNING |
+| Memory-High | 内存使用高 | > 4GB | WARNING |
+
+### 13.3 告警通知操作
+
+```bash
+# 启动 Webhook 模拟器（本地开发）
+make alert-up                   # http://localhost:9999/history 查看历史
+
+# 发送测试告警
+make alert-test                 # 发送4种场景（MINOR/MAJOR/CRITICAL/去重）
+
+# 手动发送
+python python/alert_dispatcher.py --test
+```
+
+### 13.4 日志收集操作
+
+```bash
+# 启动 ELK 日志栈
+make elk-up
+
+# 访问 Kibana
+# http://localhost:5601 → 创建 index pattern: traffic-logs-*
+
+# 发送测试日志
+echo '{"service":"test","message":"test log"}' | nc localhost 5000
+```
+
+---
+
+## 十四、一键部署命令速查
+
+```bash
+# === Linux / Git Bash ===
+bash bin/deploy-all.sh quickstart    # 30秒快速体验
+bash bin/deploy-all.sh deploy        # 完整24服务部署
+bash bin/deploy-all.sh status        # 服务状态
+bash bin/deploy-all.sh verify        # 全链路验证
+
+# === Windows PowerShell ===
+.\bin\deploy-all.ps1 quickstart
+.\bin\deploy-all.ps1 deploy
+.\bin\deploy-all.ps1 status
+
+# === Superset 可视化 ===
+make superset-setup                  # 自动配置4套看板
+python bin/setup_superset.py --offline  # 生成配置清单
+```
+
+---
+
+> 最后更新：2026-06-15 | 版本 v3.1
 ```

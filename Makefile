@@ -10,7 +10,12 @@
 #   make clean      彻底清理(含数据卷)
 # ============================================================
 
-.PHONY: build up down restart status logs demo test clean
+.PHONY: build up down restart status logs demo test clean \
+        monitor-up monitor-down monitor-status \
+        elk-up elk-down elk-status \
+        alert-up alert-down \
+        superset-setup \
+        deploy-all status-all
 
 COMPOSE = docker compose -p traffic
 
@@ -65,3 +70,100 @@ shell:
 clean:
 	$(COMPOSE) down -v
 	@echo "已清理所有容器和数据卷"
+
+# ========== 监控栈 ==========
+monitor-up:
+	docker compose -f docker-compose-monitoring.yml up -d
+	@echo ""
+	@echo "监控栈已启动:"
+	@echo "  Grafana:    http://localhost:3000 (admin/admin)"
+	@echo "  Prometheus: http://localhost:9090"
+	@echo "  AlertManager: http://localhost:9093"
+	@echo "  Loki:       http://localhost:3100"
+
+monitor-down:
+	docker compose -f docker-compose-monitoring.yml down
+
+monitor-status:
+	docker compose -f docker-compose-monitoring.yml ps
+
+# ========== ELK 日志栈 ==========
+elk-up:
+	docker compose -f docker-compose-elk.yml up -d
+	@echo ""
+	@echo "ELK 日志栈已启动:"
+	@echo "  Kibana:        http://localhost:5601"
+	@echo "  Elasticsearch:  http://localhost:9200"
+	@echo "  Logstash:       tcp://localhost:5000"
+
+elk-down:
+	docker compose -f docker-compose-elk.yml down
+
+elk-status:
+	docker compose -f docker-compose-elk.yml ps
+
+# ========== 告警 Webhook ==========
+alert-up:
+	@echo "启动告警 Webhook 模拟服务器..."
+	python python/alert_webhook_server.py &
+
+alert-down:
+	@echo "停止告警 Webhook..."
+	@pkill -f alert_webhook_server.py || true
+
+alert-test:
+	python python/alert_dispatcher.py --test
+
+# ========== Superset 配置 ==========
+superset-setup:
+	python bin/setup_superset.py
+
+superset-setup-offline:
+	python bin/setup_superset.py --offline
+
+# ========== 一键部署 ==========
+deploy-all:
+	bash bin/deploy-all.sh deploy
+
+deploy-quick:
+	bash bin/deploy-all.sh quickstart
+
+status-all:
+	bash bin/deploy-all.sh status
+
+verify-all:
+	bash bin/deploy-all.sh verify
+
+# ========== 帮助 ==========
+help:
+	@echo "智慧城市交通数据治理平台 — 命令清单"
+	@echo ""
+	@echo "  核心服务:"
+	@echo "    make up / down / restart / status / logs"
+	@echo ""
+	@echo "  一键部署:"
+	@echo "    make deploy-quick    # 快速启动 (5容器)"
+	@echo "    make deploy-all      # 完整部署 (24容器)"
+	@echo "    make status-all      # 查看所有服务"
+	@echo "    make verify-all      # 全链路验证"
+	@echo ""
+	@echo "  监控栈:"
+	@echo "    make monitor-up      # 启动 Prometheus+Grafana"
+	@echo "    make monitor-down    # 停止监控栈"
+	@echo ""
+	@echo "  日志栈:"
+	@echo "    make elk-up          # 启动 ELK"
+	@echo "    make elk-down        # 停止 ELK"
+	@echo ""
+	@echo "  告警系统:"
+	@echo "    make alert-up        # 启动 Webhook 模拟器"
+	@echo "    make alert-test      # 发送测试告警"
+	@echo ""
+	@echo "  可视化:"
+	@echo "    make superset-setup  # 自动配置 Superset 看板"
+	@echo ""
+	@echo "  开发测试:"
+	@echo "    make demo            # 全流程演示"
+	@echo "    make test            # 伪分布式测试"
+	@echo "    make shell           # 进入容器"
+	@echo "    make clean           # 清理所有"

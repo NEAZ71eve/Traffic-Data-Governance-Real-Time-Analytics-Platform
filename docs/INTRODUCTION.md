@@ -2,8 +2,9 @@
 
 > **智慧城市交通数据治理实时分析平台**  
 > Traffic Data Governance & Real-Time Analytics Platform for Smart City  
-> 版本 v2.0 | 2026-06-10  
+> 版本 v3.0 | 2026-06-15  
 > 🚀 已从伪分布式升级为真实 Docker 容器部署：HDFS + Hive 4.0.0 + Kafka 3.7.0 + Flink 1.18 + DolphinScheduler 2.0.5
+> 🆕 新增：Prometheus+Grafana 监控栈 | ELK 日志收集 | 告警分发引擎 | 一键部署脚本 | Superset 自动配置
 
 ---
 
@@ -605,44 +606,42 @@ AI辅助模块:     ✅ 6/6 = 100% 可独立演示
 
 ## 12. 路线图
 
-### 已完成 (v1.0)
+### ✅ 已完成 (v3.0, 2026-06-15)
 
-- [x] 4 个 Kafka Topic 数据采集链路
+**核心平台**
+- [x] 24 张 Hive 数仓表（ODS/DIM/DWD/DWS/ADS）
 - [x] 3 个 Flink 实时计算作业（车流/拥堵/CEP）
-- [x] 20 张 Hive 数仓表（ODS/DIM/DWD/DWS/ADS）
-- [x] 数据质量监控 + 告警分发
-- [x] 数据血缘追踪 + 影响分析
-- [x] 4 套 Superset 看板设计
-- [x] AI 辅助模块（异常检测/NL2SQL/ETL 生成）
-- [x] 完整运维手册 + 项目介绍手册 + 详细对照清单
+- [x] 4 个 Kafka Topic + DataX/Maxwell/Flume 采集链路
+- [x] 数据质量监控 + 血缘追踪 + 数据治理
+- [x] 4 套 Superset 看板 + Flask 统一仪表盘
+- [x] AI 辅助模块（6/6 异常检测/NL2SQL/ETL 生成）
+- [x] 完整运维手册 + 架构文档 + 验证报告
 
-### 规划中 (v1.1) - AI模块增强
+**🆕 监控与运维 (v3.0)**
+- [x] Prometheus + Grafana 运维监控大屏 (11面板/10条规则)
+- [x] ELK 日志收集栈 (Elasticsearch + Logstash + Kibana)
+- [x] 告警分发引擎 (去重抑制 + 自动升级 + 日汇总)
+- [x] Webhook 模拟器 (本地开发调试)
+- [x] 一键全栈部署 (bash + PowerShell)
+- [x] Superset 自动配置脚本 (4套看板/24图表)
 
-**数仓与实时计算**
-- [ ] Flink SQL 替代 DataStream API（降低开发门槛）
-- [ ] Hudi/Iceberg 数据湖升级（支持 Upsert/TimeTravel）
-- [ ] 实时数据质量监控（Flink + Griffin 实时规则）
-- [ ] Grafana + Prometheus 组件级监控大盘
+### 规划中 (v3.1+)
 
-**AI辅助模块改进**（详见 [AI_MODULE_DESIGN.md](AI_MODULE_DESIGN.md)）
-- [ ] 🔧 替换 Isolation Forest 为 scikit-learn 实现
-- [ ] 🔧 增加模型持久化机制
-- [ ] 🔧 增强 NL2SQL 规则匹配覆盖（从8种扩展到15+种）
-- [ ] 🔧 增加 SQL 生成置信度评分
-- [ ] 🔧 完善数据血缘自动解析
-- [ ] 🔧 对接真实 Hive Metastore
-- [ ] 🔧 集成真实 Kafka 客户端监控 Lag
+**工程增强**
+- [ ] Flink SQL 替代 DataStream API
+- [ ] Hudi/Iceberg 数据湖升级（Upsert/TimeTravel）
+- [ ] 实时数据质量监控（Flink + Griffin）
+- [ ] Kafka SASL / Kerberos 安全认证
 
-### 远期规划 (v1.5 → v2.0)
+**AI模块改进**
+- [ ] 🔧 scikit-learn Isolation Forest + 模型持久化
+- [ ] 🔧 NL2SQL 扩展到15+种查询意图
+- [ ] 🔧 血缘自动解析 + Web UI 可视化
+- [ ] 🔧 对接真实 Hive Metastore + Kafka 客户端
 
-**v1.5 - 深度增强（1-2月）**
-- [ ] 🚀 Flink 实时异常检测对接（CEP + ML 双路检测）
-- [ ] 🚀 Superset NL2SQL 插件开发
-- [ ] 🚀 血缘可视化 Web UI（ECharts/D3.js）
-- [ ] 🚀 质量规则 DSL 配置引擎
-
-**v2.0 - 智能化升级（3-6月）**
-- [ ] 🤖 集成 SQLNet/TP-SQL 深度学习模型
+**远期**
+- [ ] 🤖 深度学习 NL2SQL 模型集成
+- [ ] 🚀 Flink CEP + ML 双路异常检测
 - [ ] 🤖 LLM 辅助 ETL 生成
 - [ ] 🤖 LSTM AutoEncoder 时序预测异常检测
 - [ ] 🤖 自动质量趋势预测

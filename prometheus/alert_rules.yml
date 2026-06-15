@@ -1,0 +1,121 @@
+# ============================================================================
+# Prometheus 告警规则 — 交通数据治理平台
+# ============================================================================
+groups:
+  - name: traffic_platform_alerts
+    interval: 30s
+    rules:
+      # ---------- 服务可用性 ----------
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "{{ $labels.service }}/{{ $labels.component }} 不可用"
+          description: "服务 {{ $labels.instance }} 已宕机超过 2 分钟"
+          suggestion: "立即检查对应 Docker 容器状态和服务日志"
+
+      - alert: FlinkJobManagerDown
+        expr: up{service="flink", component="jobmanager"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Flink JobManager 不可用，实时计算已中断"
+          description: "Flink JM {{ $labels.instance }} down"
+          suggestion: "检查 Flink HA 是否已自动切换，如未切换请手动启动备用 JM"
+
+      - alert: KafkaBrokerDown
+        expr: up{service="kafka"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Kafka Broker 不可用"
+          description: "Kafka {{ $labels.instance }} 不可达，可能影响消息收发"
+          suggestion: "检查 KRaft Quorum 状态，确认至少 2/3 节点正常"
+
+      - alert: RedisNodeDown
+        expr: up{service="redis"} == 0
+        for: 2m
+        labels:
+          severity: major
+          category: availability
+        annotations:
+          summary: "Redis 节点不可用"
+          description: "Redis {{ $labels.instance }} down"
+          suggestion: "检查 Redis Cluster 是否自动故障转移"
+
+      - alert: HDFSNameNodeDown
+        expr: up{service="hdfs", component="namenode"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "HDFS NameNode 不可用"
+          description: "数据湖存储服务不可访问"
+          suggestion: "立即检查 NameNode 容器状态，恢复 HDFS 服务"
+
+      # ---------- Kafka 延迟 ----------
+      - alert: KafkaConsumerLagHigh
+        expr: kafka_consumer_lag > 10000
+        for: 5m
+        labels:
+          severity: major
+          category: performance
+        annotations:
+          summary: "Kafka 消费延迟过高: {{ $value }} 条"
+          description: "Topic 消费积压超过 10000 条"
+          suggestion: "检查 Flink Consumer 处理能力，考虑增加并行度"
+
+      # ---------- Flink Checkpoint ----------
+      - alert: FlinkCheckpointFailed
+        expr: flink_jobmanager_job_lastCheckpointDuration > 300000
+        for: 5m
+        labels:
+          severity: major
+          category: performance
+        annotations:
+          summary: "Flink Checkpoint 超时"
+          description: "Checkpoint 耗时超过 5 分钟"
+          suggestion: "检查 HDFS 存储状态，考虑增加 Checkpoint 间隔"
+
+      # ---------- 资源使用 ----------
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total[5m]) * 100 > 90
+        for: 10m
+        labels:
+          severity: warning
+          category: resource
+        annotations:
+          summary: "CPU 使用率 > 90%: {{ $labels.instance }}"
+          description: "进程 CPU 持续高负载"
+          suggestion: "检查是否有数据倾斜或异常流量"
+
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 / 1024 > 4
+        for: 5m
+        labels:
+          severity: warning
+          category: resource
+        annotations:
+          summary: "内存使用 > 4GB: {{ $labels.instance }}"
+          description: "进程内存持续高位"
+          suggestion: "检查是否存在内存泄漏或状态过大"
+
+      # ---------- 数据质量 ----------
+      - alert: DataQualityLow
+        expr: traffic_data_quality_score < 90
+        for: 10m
+        labels:
+          severity: warning
+          category: data_quality
+        annotations:
+          summary: "数据质量评分 < 90: {{ $value }}"
+          description: "平台数据质量下降"
+          suggestion: "检查数据质量监控面板，排查质量下降原因"

@@ -202,7 +202,7 @@ public class DeviceStatusCEP {
 
         // 合并所有告警流
         DataStream<String> allAlerts = offlineAlert.union(cpuAlert).union(tempAlert).union(highFreqAlert)
-            .name("CEP Alert Union").uid("cep-alert-union");
+            ;
 
         // 输出1: 控制台打印（开发调试用）
         allAlerts.print().name("Alert Printer").uid("alert-printer");

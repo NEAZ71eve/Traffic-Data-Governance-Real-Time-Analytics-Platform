@@ -19,35 +19,26 @@ pseudo_distributed/data/hdfs/
 .vscode/
 .idea/
 
-# Temp scripts
-check_state.py
-create_charts.py
-mount_charts.py
-test_chart_api.py
-verify_superset.py
-run_superset.py
-superset_setup.py
-superset_api_setup.py
-
 # OS
 .DS_Store
 Thumbs.db
 
-# Docker (keep compose files, ignore volumes)
+# Docker volumes (keep compose files)
 docker-compose.override.yml
 
 # Java / Maven build artifacts
 flink/target/
 flink/dependency-reduced-pom.xml
-flink/src/
 
-# Generated test data (not committed)
-tmp_hive_data/
-tmp_kafka_data/
-postgresql-42.7.1.jar
-bin/generate_hive_data.py
-bin/generate_kafka_data.py
-bin/fix_compose.py
+# Monitoring data (runtime)
+prometheus_data/
+grafana_data/
+alertmanager_data/
+loki_data/
+elasticsearch_data/
 
-# Personal files
-resume_*.md
+# Alert history (runtime)
+alert_history.json
+
+# Generated config (runtime)
+config/superset_setup.json

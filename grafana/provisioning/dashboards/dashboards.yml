@@ -1,0 +1,14 @@
+# Grafana 仪表盘自动加载配置
+apiVersion: 1
+
+providers:
+  - name: 'Traffic Platform'
+    orgId: 1
+    folder: 'Traffic Monitoring'
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: true

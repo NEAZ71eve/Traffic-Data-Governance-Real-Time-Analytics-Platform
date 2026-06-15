@@ -1,0 +1,147 @@
+# ============================================================================
+# Prometheus 配置 — 智慧城市交通数据治理平台监控
+# 用法: docker compose -f docker-compose-monitoring.yml up -d
+# ============================================================================
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'traffic-platform'
+    environment: 'production'
+
+# 告警规则
+rule_files:
+  - "alert_rules.yml"
+
+# 抓取配置
+scrape_configs:
+  # ---------- Prometheus 自身 ----------
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # ---------- Flask 应用仪表盘 ----------
+  - job_name: 'traffic-app'
+    metrics_path: '/api/health'
+    static_configs:
+      - targets: ['traffic-app:8088']
+        labels:
+          service: 'dashboard'
+          component: 'flask'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '(.+):\d+'
+        replacement: '$1'
+
+  # ---------- Flink JobManager ----------
+  - job_name: 'flink-jobmanager'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['traffic-flink-jm-1:8081']
+        labels:
+          service: 'flink'
+          component: 'jobmanager'
+      - targets: ['traffic-flink-jm-2:8081']
+        labels:
+          service: 'flink'
+          component: 'jobmanager-backup'
+
+  # ---------- Flink TaskManager ----------
+  - job_name: 'flink-taskmanager'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets:
+          - 'traffic-flink-tm-1:9249'
+          - 'traffic-flink-tm-2:9249'
+          - 'traffic-flink-tm-3:9249'
+        labels:
+          service: 'flink'
+          component: 'taskmanager'
+
+  # ---------- Kafka Broker ----------
+  - job_name: 'kafka'
+    static_configs:
+      - targets:
+          - 'traffic-kafka-1:9092'
+          - 'traffic-kafka-2:9094'
+          - 'traffic-kafka-3:9096'
+        labels:
+          service: 'kafka'
+          component: 'broker'
+
+  # ---------- Redis ----------
+  - job_name: 'redis'
+    static_configs:
+      - targets:
+          - 'traffic-redis-1:6379'
+          - 'traffic-redis-2:6380'
+          - 'traffic-redis-3:6381'
+        labels:
+          service: 'redis'
+          component: 'node'
+
+  # ---------- HDFS NameNode ----------
+  - job_name: 'hdfs-namenode'
+    metrics_path: '/jmx'
+    params:
+      qry: ['Hadoop:service=NameNode,name=NameNodeInfo']
+    static_configs:
+      - targets: ['traffic-hdfs-namenode:9870']
+        labels:
+          service: 'hdfs'
+          component: 'namenode'
+
+  # ---------- HDFS DataNode ----------
+  - job_name: 'hdfs-datanode'
+    metrics_path: '/jmx'
+    params:
+      qry: ['Hadoop:service=DataNode,name=DataNodeInfo']
+    static_configs:
+      - targets:
+          - 'traffic-hdfs-datanode-1:9864'
+          - 'traffic-hdfs-datanode-2:9865'
+          - 'traffic-hdfs-datanode-3:9866'
+        labels:
+          service: 'hdfs'
+          component: 'datanode'
+
+  # ---------- MySQL ----------
+  - job_name: 'mysql'
+    static_configs:
+      - targets: ['traffic-mysql:3306']
+        labels:
+          service: 'mysql'
+          component: 'database'
+
+  # ---------- DolphinScheduler ----------
+  - job_name: 'dolphinscheduler'
+    static_configs:
+      - targets: ['traffic-ds-api:12345']
+        labels:
+          service: 'dolphinscheduler'
+          component: 'api'
+
+  # ---------- Superset ----------
+  - job_name: 'superset'
+    static_configs:
+      - targets: ['traffic-superset:8088']
+        labels:
+          service: 'superset'
+          component: 'web'
+
+  # ---------- Docker 宿主机 ----------
+  - job_name: 'docker-host'
+    static_configs:
+      - targets: ['host.docker.internal:9323']
+        labels:
+          service: 'docker'
+          component: 'host'
+
+  # ---------- Node Exporter（如果部署了）----------
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          service: 'system'
+          component: 'node'

@@ -1,0 +1,324 @@
+{
+  "dashboard": {
+    "uid": "traffic-platform-overview",
+    "title": "🚦 交通数据治理平台 — 运维监控大屏",
+    "description": "智慧城市交通大数据平台全链路监控：Kafka → Flink → Redis → HDFS → Hive → Superset",
+    "tags": ["traffic", "bigdata", "monitoring"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "服务健康状态",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 0, "w": 6, "h": 3},
+        "targets": [
+          {
+            "expr": "count(up == 1)",
+            "legendFormat": "在线",
+            "refId": "A"
+          },
+          {
+            "expr": "count(up == 0)",
+            "legendFormat": "离线",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "green", "value": 0}
+              ]
+            },
+            "mappings": [],
+            "color": {"mode": "thresholds"}
+          }
+        },
+        "options": {
+          "reduceOptions": {"values": false, "calcs": ["lastNotNull"]},
+          "orientation": "auto",
+          "textMode": "value",
+          "colorMode": "background",
+          "graphMode": "area"
+        }
+      },
+      {
+        "id": 2,
+        "title": "Flink Checkpoint 耗时",
+        "type": "timeseries",
+        "gridPos": {"x": 6, "y": 0, "w": 9, "h": 3},
+        "targets": [
+          {
+            "expr": "rate(flink_jobmanager_job_lastCheckpointDuration[5m])",
+            "legendFormat": "Checkpoint Duration",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "custom": {"lineWidth": 2, "fillOpacity": 10}
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Kafka 消息速率",
+        "type": "timeseries",
+        "gridPos": {"x": 15, "y": 0, "w": 9, "h": 3},
+        "targets": [
+          {
+            "expr": "rate(kafka_server_brokertopicmetrics_messagesin_total[1m])",
+            "legendFormat": "{{topic}} in",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(kafka_consumer_fetcher_manager_records_consumed_total[1m])",
+            "legendFormat": "Consumed",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "msgs/s",
+            "custom": {"lineWidth": 2, "fillOpacity": 10}
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Kafka 消费延迟 (Lag)",
+        "type": "timeseries",
+        "gridPos": {"x": 0, "y": 3, "w": 8, "h": 5},
+        "targets": [
+          {
+            "expr": "kafka_consumer_lag",
+            "legendFormat": "{{topic}} / {{consumergroup}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "custom": {"lineWidth": 2, "fillOpacity": 15},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 5000},
+                {"color": "red", "value": 10000}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Flink Task Slots 使用",
+        "type": "gauge",
+        "gridPos": {"x": 8, "y": 3, "w": 4, "h": 5},
+        "targets": [
+          {
+            "expr": "flink_taskmanager_job_task_numRecordsOutPerSecond",
+            "legendFormat": "{{task_name}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 12},
+                {"color": "red", "value": 15}
+              ]
+            }
+          }
+        },
+        "options": {
+          "reduceOptions": {"values": false, "calcs": ["mean"]},
+          "orientation": "auto",
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        }
+      },
+      {
+        "id": 6,
+        "title": "HDFS 存储使用",
+        "type": "gauge",
+        "gridPos": {"x": 12, "y": 3, "w": 4, "h": 5},
+        "targets": [
+          {
+            "expr": "hadoop_namenode_capacityused / hadoop_namenode_capacitytotal * 100",
+            "legendFormat": "使用率",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 90}
+              ]
+            }
+          }
+        },
+        "options": {
+          "reduceOptions": {"values": false, "calcs": ["lastNotNull"]},
+          "orientation": "auto",
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        }
+      },
+      {
+        "id": 7,
+        "title": "HDFS DataNode 状态",
+        "type": "stat",
+        "gridPos": {"x": 16, "y": 3, "w": 4, "h": 5},
+        "targets": [
+          {
+            "expr": "count(up{service=\"hdfs\",component=\"datanode\"} == 1)",
+            "legendFormat": "Online DNs",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "yellow", "value": 2},
+                {"color": "green", "value": 3}
+              ]
+            }
+          }
+        },
+        "options": {
+          "reduceOptions": {"values": false, "calcs": ["lastNotNull"]},
+          "colorMode": "background",
+          "textMode": "value_and_name",
+          "orientation": "auto"
+        }
+      },
+      {
+        "id": 8,
+        "title": "Redis 操作速率",
+        "type": "timeseries",
+        "gridPos": {"x": 0, "y": 8, "w": 8, "h": 5},
+        "targets": [
+          {
+            "expr": "rate(redis_commands_processed_total[1m])",
+            "legendFormat": "{{instance}} Ops/s",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "custom": {"lineWidth": 2, "fillOpacity": 10}
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "CPU 使用率",
+        "type": "timeseries",
+        "gridPos": {"x": 8, "y": 8, "w": 8, "h": 5},
+        "targets": [
+          {
+            "expr": "rate(process_cpu_seconds_total[1m]) * 100",
+            "legendFormat": "{{instance}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "custom": {"lineWidth": 2, "fillOpacity": 10},
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 90}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "内存使用",
+        "type": "timeseries",
+        "gridPos": {"x": 16, "y": 8, "w": 8, "h": 5},
+        "targets": [
+          {
+            "expr": "process_resident_memory_bytes / 1024 / 1024",
+            "legendFormat": "{{instance}} MB",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "decbytes",
+            "custom": {"lineWidth": 2, "fillOpacity": 10}
+          }
+        }
+      },
+      {
+        "id": 11,
+        "title": "活跃告警",
+        "type": "table",
+        "gridPos": {"x": 0, "y": 13, "w": 24, "h": 6},
+        "targets": [
+          {
+            "expr": "ALERTS{alertstate=\"firing\"}",
+            "format": "table",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "cellOptions": {"type": "auto"},
+              "inspect": false
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "red", "value": 0}
+              ]
+            }
+          }
+        },
+        "options": {
+          "showHeader": true,
+          "sortBy": [{"displayName": "severity", "desc": true}]
+        }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m"]
+    }
+  }
+}
