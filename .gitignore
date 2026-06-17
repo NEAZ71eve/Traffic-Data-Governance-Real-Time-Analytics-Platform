@@ -40,5 +40,8 @@ elasticsearch_data/
 # Alert history (runtime)
 alert_history.json
 
+# Interview preparation (local only)
+docs/INTERVIEW_PREP.md
+
 # Generated config (runtime)
 config/superset_setup.json
