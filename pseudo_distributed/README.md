@@ -1,61 +1,47 @@
-# 伪分布式部署方案
+# 伪分布式部署
+
+单机运行方案 — WSL Kafka + Redis, Windows Flink, SQLite 替代 Hive, 本地文件替代 HDFS。
 
 ## 架构
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Windows 单机                          │
-│                                                         │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────────┐  │
-│  │  Flink   │  │  Python  │  │  WSL Ubuntu           │  │
-│  │JobManager│  │ 脚本/Kafka│  │  ┌────────┐┌───────┐ │  │
-│  │+TaskMgr  │  │ Consumer │  │  │ Kafka  ││ Redis │ │  │
-│  │ localhost│  │ producer │──▶  │ Broker ││Server │ │  │
-│  │ :8081    │  │          │  │  │ :9092  ││:6379  │ │  │
-│  └──────────┘  └──────────┘  │  └────────┘└───────┘ │  │
-│                               └──────────────────────┘  │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │              SQLite (Hive 替代)                    │   │
-│  │         traffic_data.db (HDFS 替代)                │   │
-│  └──────────────────────────────────────────────────┘   │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │          Flask 仪表盘 (Superset 替代)              │   │
-│  │              http://127.0.0.1:8088                │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+Windows: Flink (8081) / Python 脚本 / Flask 仪表盘 (8088)
+WSL: Kafka (9092) / Redis (6379)
+SQLite: traffic_data.db (Hive 替代)
+本地文件: data/hdfs/ (HDFS 替代)
 ```
 
 ## 组件对照
 
-| 生产组件 | 伪分布式方案 | 验证方式 |
-|---------|------------|---------|
-| Kafka | WSL Kafka 3.7.0 (KRaft单节点) | produce→consume 消息 |
-| Flink | Windows Flink 1.18 Standalone | submit Job → 查看WebUI |
-| Redis | WSL Redis 7.0 | Python redis-py 读写 |
-| HDFS | 本地文件系统 data/ 目录 | Python 文件读写模拟 |
-| Hive | SQLite traffic_data.db | 执行 20 个 SQL 脚本 |
-| DolphinScheduler | task_scheduler.py | Python APScheduler 模拟 |
-| Superset | Flask 仪表盘 | http://127.0.0.1:8088 |
+| 生产组件 | 伪分布式方案 |
+|---------|------------|
+| Kafka | WSL Kafka 3.7 (KRaft) |
+| Flink | Windows Flink 1.18 Standalone |
+| Redis | WSL Redis 7.0 |
+| HDFS | 本地 data/hdfs/ 分区目录 |
+| Hive | SQLite traffic_data.db |
+| DolphinScheduler | Python APScheduler |
+| Superset | Flask 仪表盘 |
 
-## 快速开始
+## 使用
 
 ```bash
-# 1. 一键安装所有组件
+# 安装
 python setup_all.py
 
-# 2. 启动所有服务
+# 启动
 python start_all.py
 
-# 3. 测试每个组件
-python test_kafka.py
-python test_flink.py
-python test_redis.py
-python test_hive_sql.py
-python test_hdfs.py
+# 测试组件
+python test_kafka.py   # Kafka 生产30条→消费验证
+python test_flink.py   # Flink 集群状态+WebUI
+python test_redis.py   # Redis HSET/Pipeline/PubSub
+python test_hive_sql.py # SQLite 执行20+ SQL
+python test_hdfs.py    # 本地FS模拟5层分区
 
-# 4. 端到端全链路测试
+# 全链路验证 (7/7 PASS)
 python test_pipeline.py
 
-# 5. 停止所有服务
+# 停止
 python stop_all.py
 ```
