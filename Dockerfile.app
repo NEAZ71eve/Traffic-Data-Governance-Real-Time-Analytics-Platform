@@ -7,8 +7,9 @@ FROM python:3.12-slim
 LABEL project="Traffic-Data-Governance"
 LABEL description="智慧城市交通数据治理平台 — Python运行时"
 
-# 系统依赖
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# 系统依赖 (使用国内镜像源加速)
+RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list.d/debian.sources && \
+    apt-get update && apt-get install -y --no-install-recommends \
     curl \
     procps \
     netcat-openbsd \
@@ -21,14 +22,13 @@ WORKDIR /app
 # ============================================================
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple && \
-    pip install --no-cache-dir pyspark==3.5.1 apache-flink==1.18.1 -i https://pypi.tuna.tsinghua.edu.cn/simple
+RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 # ============================================================
 # 复制应用代码
 # ============================================================
 COPY dashboard_app.py /app/
-COPY dashboard.html /app/
+
 COPY demo_full_pipeline.py /app/
 COPY config/ /app/config/
 COPY sql/ /app/sql/

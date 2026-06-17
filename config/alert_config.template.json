@@ -1,0 +1,111 @@
+{
+  "alert_config": {
+    "enabled": true,
+    "default_language": "zh_CN",
+    "channels": {
+      "dingtalk": {
+        "enabled": true,
+        "webhook_url": "https://oapi.dingtalk.com/robot/send?access_token=YOUR_ACCESS_TOKEN_HERE",
+        "signature_enabled": true,
+        "signature_secret": "SEC_YOUR_DINGTALK_ROBOT_SECRET_HERE",
+        "_comment": "获取方式: 钉钉群 → 群设置 → 智能群助手 → 添加机器人 → 选择「自定义」→ 复制 Webhook URL 和安全设置中的签名密钥",
+        "_comment_at": "at_mobiles 填写需要 @ 的手机号列表, 留空则不 @ 任何人",
+        "at_mobiles": [],
+        "at_all_on_critical": true,
+        "msg_type": "markdown"
+      },
+      "email": {
+        "enabled": true,
+        "smtp_host": "smtp.company.com",
+        "smtp_port": 587,
+        "sender": "data-platform@company.com",
+        "recipients": {
+          "ops_team": ["ops@company.com"],
+          "data_team": ["data-team@company.com"],
+          "oncall": ["oncall@company.com"]
+        }
+      },
+      "sms": {
+        "enabled": false,
+        "provider": "aliyun",
+        "access_key": "YOUR_ACCESS_KEY",
+        "template_id": "SMS_001"
+      },
+      "phone": {
+        "enabled": false,
+        "provider": "twilio"
+      }
+    },
+    "escalation_policy": {
+      "CRITICAL": {
+        "channels": ["dingtalk", "email", "sms", "phone"],
+        "retry_interval_minutes": 5,
+        "max_retry": 3,
+        "escalation_timeout_minutes": 15,
+        "escalation_recipients": ["manager@company.com"]
+      },
+      "MAJOR": {
+        "channels": ["dingtalk", "email"],
+        "retry_interval_minutes": 15,
+        "max_retry": 2,
+        "escalation_timeout_minutes": 60
+      },
+      "MINOR": {
+        "channels": ["email"],
+        "retry_interval_minutes": 0,
+        "max_retry": 0
+      }
+    },
+    "silence_rules": {
+      "maintenance_window": {
+        "enabled": true,
+        "cron": "0 0 2 * * ?",
+        "description": "凌晨2-3点运维窗口期，非CRITICAL告警静默"
+      },
+      "duplicate_suppression_minutes": 30,
+      "daily_summary": {
+        "enabled": true,
+        "send_time": "09:00",
+        "recipients": ["data-team@company.com", "ops@company.com"]
+      }
+    }
+  },
+  "quality_alert_rules": [
+    {
+      "rule_id": "QA001",
+      "name": "ODS车辆数据完整率检查",
+      "check_type": "completeness",
+      "target_table": "ods_vehicle_pass_di",
+      "threshold_pct": 99.0,
+      "severity": "MAJOR",
+      "message_template": "【数据质量告警】{table} 在 {dt} 分区的完整率仅 {actual}% (阈值 {threshold}%)，空值字段: {null_fields}"
+    },
+    {
+      "rule_id": "QA002",
+      "name": "DWD车速异常值检查",
+      "check_type": "validity",
+      "target_table": "dwd_vehicle_pass_di",
+      "threshold_pct": 99.0,
+      "severity": "MINOR",
+      "message_template": "【数据质量告警】{table} 车速异常值占比 {abnormal_pct}% 超过阈值"
+    },
+    {
+      "rule_id": "QA003",
+      "name": "设备状态重复率检查",
+      "check_type": "uniqueness",
+      "target_table": "dwd_device_status_di",
+      "threshold_pct": 99.9,
+      "severity": "MAJOR",
+      "message_template": "【数据质量告警】{table} 存在 {duplicate_count} 条重复记录"
+    },
+    {
+      "rule_id": "QA004",
+      "name": "Kafka消费延迟检查",
+      "check_type": "kafka_lag",
+      "target_topic": "traffic_vehicle",
+      "threshold_lag": 1000,
+      "severity": "MAJOR",
+      "message_template": "【数据延迟告警】Kafka Topic {topic} 消费延迟 {lag}，超过阈值 {threshold}"
+    }
+  ]
+}

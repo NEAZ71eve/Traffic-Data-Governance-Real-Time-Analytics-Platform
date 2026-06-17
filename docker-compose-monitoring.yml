@@ -124,7 +124,31 @@ services:
       loki:
         condition: service_healthy
 
-  # ==================== Node Exporter (主机指标) ====================
+  # ==================== AlertManager-DingTalk 适配器 ====================
+  alertmanager-adapter:
+    build:
+      context: .
+      dockerfile: Dockerfile.alertmanager
+    container_name: traffic-alertmanager-adapter
+    ports:
+      - "5000:5000"
+    environment:
+      - TZ=Asia/Shanghai
+      - ADAPTER_PORT=5000
+    volumes:
+      - ./config:/app/config:ro
+      - ./python:/app/python:ro
+    networks:
+      - traffic-mon-net
+    depends_on:
+      alertmanager:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
   node-exporter:
     image: prom/node-exporter:v1.7.0
     container_name: traffic-node-exporter

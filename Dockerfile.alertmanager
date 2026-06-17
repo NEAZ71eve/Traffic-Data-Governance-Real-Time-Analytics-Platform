@@ -1,0 +1,30 @@
+# ============================================================
+# 智慧城市交通数据治理 — AlertManager DingTalk 适配器镜像
+# ============================================================
+FROM python:3.12-slim
+
+LABEL project="Traffic-Data-Governance"
+LABEL description="AlertManager → DingTalk 告警桥接适配器"
+
+WORKDIR /app
+
+# 系统依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python 依赖
+COPY requirements.txt /app/
+RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+# 应用代码
+COPY python/alertmanager_adapter.py /app/
+COPY python/dingtalk_signer.py /app/python/
+COPY config/alert_config.json /app/config/
+
+EXPOSE 5000
+
+HEALTHCHECK --interval=15s --timeout=5s --retries=3 \
+    CMD curl -f http://localhost:5000/health || exit 1
+
+CMD ["python", "alertmanager_adapter.py", "5000"]

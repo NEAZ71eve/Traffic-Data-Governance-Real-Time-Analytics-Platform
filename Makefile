@@ -10,12 +10,15 @@
 #   make clean      彻底清理(含数据卷)
 # ============================================================
 
-.PHONY: build up down restart status logs demo test clean \
+.PHONY: build up down restart status logs demo test test-all shell clean \
         monitor-up monitor-down monitor-status \
         elk-up elk-down elk-status \
-        alert-up alert-down \
-        superset-setup \
-        deploy-all status-all
+        alert-up alert-down alert-test \
+        sim-up sim-down sim-logs \
+        superset-setup superset-setup-offline \
+        deploy-all deploy-quick status-all verify-all \
+        flink-build flink-submit \
+        help
 
 COMPOSE = docker compose -p traffic
 
@@ -104,8 +107,11 @@ elk-status:
 
 # ========== 告警 Webhook ==========
 alert-up:
-	@echo "启动告警 Webhook 模拟服务器..."
-	python python/alert_webhook_server.py &
+	@echo "启动告警适配器容器..."
+	docker compose -f docker-compose-monitoring.yml up -d alertmanager-adapter
+	@echo ""
+	@echo "告警适配器已启动:"
+	@echo "  Health:     http://localhost:5000/health"
 
 alert-down:
 	@echo "停止告警 Webhook..."
@@ -113,6 +119,20 @@ alert-down:
 
 alert-test:
 	python python/alert_dispatcher.py --test
+
+# ========== 数据模拟器 ==========
+sim-up:
+	@echo "启动数据模拟引擎..."
+	$(COMPOSE) --profile simulators up -d
+	@echo ""
+	@echo "数据模拟器已启动:"
+	@echo "  查看日志: make sim-logs"
+
+sim-down:
+	$(COMPOSE) --profile simulators down
+
+sim-logs:
+	$(COMPOSE) logs -f --tail=50 simulator-kafka
 
 # ========== Superset 配置 ==========
 superset-setup:
@@ -133,6 +153,20 @@ status-all:
 
 verify-all:
 	bash bin/deploy-all.sh verify
+
+# ========== Flink 作业编译 ==========
+flink-build:
+	@echo "使用 Docker Maven 编译 Flink 作业..."
+	docker run --rm -v "$(PWD)/flink":/workspace -w /workspace \
+	  maven:3.9-eclipse-temurin-11 mvn clean package -DskipTests
+	@echo ""
+	@echo "Flink JAR 已生成: flink/target/traffic-flink-jobs-1.0.0.jar"
+	@ls -la flink/target/traffic-flink-jobs-1.0.0.jar 2>/dev/null || echo "  [WARN] JAR 未找到，请检查编译日志"
+
+flink-submit:
+	@echo "提交 Flink 作业到集群..."
+	$(COMPOSE) exec flink-jobmanager flink run -d -c com.traffic.flink.TrafficVehicleCount /workspace/traffic-flink-jobs-1.0.0.jar 2>/dev/null || \
+	  echo "  [WARN] 请先运行 make flink-build 生成 JAR"
 
 # ========== 帮助 ==========
 help:
@@ -155,12 +189,22 @@ help:
 	@echo "    make elk-up          # 启动 ELK"
 	@echo "    make elk-down        # 停止 ELK"
 	@echo ""
+	@echo "  数据模拟:"
+	@echo "    make sim-up         # 启动数据模拟引擎"
+	@echo "    make sim-down       # 停止数据模拟"
+	@echo "    make sim-logs       # 查看模拟器日志"
+	@echo ""
 	@echo "  告警系统:"
-	@echo "    make alert-up        # 启动 Webhook 模拟器"
-	@echo "    make alert-test      # 发送测试告警"
+	@echo "    make alert-up       # 启动告警适配器容器"
+	@echo "    make alert-down     # 停止告警适配器"
+	@echo "    make alert-test     # 发送测试告警"
 	@echo ""
 	@echo "  可视化:"
-	@echo "    make superset-setup  # 自动配置 Superset 看板"
+	@echo "    make superset-setup # 自动配置 Superset 看板"
+	@echo ""
+	@echo "  Flink 作业:"
+	@echo "    make flink-build    # 编译 Flink JAR"
+	@echo "    make flink-submit   # 提交 Flink 作业"
 	@echo ""
 	@echo "  开发测试:"
 	@echo "    make demo            # 全流程演示"

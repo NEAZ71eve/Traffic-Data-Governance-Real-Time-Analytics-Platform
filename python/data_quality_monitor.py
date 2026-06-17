@@ -50,11 +50,23 @@ class AlertNotifier:
             return default
 
     def send_dingtalk(self, title, content, severity='MAJOR', at_all=False):
-        """钉钉机器人推送（支持markdown格式）"""
-        webhook = self.config.get('channels', {}).get('dingtalk', {}).get('webhook_url', '')
+        """钉钉机器人推送（支持markdown格式 + HMAC-SHA256签名）"""
+        dingtalk_cfg = self.config.get('channels', {}).get('dingtalk', {})
+        webhook = dingtalk_cfg.get('webhook_url', '')
         if not webhook:
             print("[DingTalk] Webhook未配置，跳过")
             return False
+
+        # HMAC-SHA256 签名
+        signature_enabled = dingtalk_cfg.get('signature_enabled', False)
+        secret = dingtalk_cfg.get('signature_secret', '')
+        if signature_enabled and secret and 'YOUR' not in secret:
+            try:
+                from python.dingtalk_signer import DingTalkSigner
+                signer = DingTalkSigner(secret)
+                webhook = signer.sign_url(webhook)
+            except ImportError:
+                pass
 
         markdown_text = f"## {title}\n\n{content}\n\n> 告警级别: {severity}\n> 告警时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
 

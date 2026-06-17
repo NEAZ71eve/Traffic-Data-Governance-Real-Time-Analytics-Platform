@@ -7,27 +7,34 @@
 services:
   # ==================== 消息队列 ====================
   kafka:
-    image: bitnami/kafka:3.7
+    image: apache/kafka:3.7.0
     container_name: traffic-kafka
     ports:
       - "9092:9092"
+      - "9094:9094"
     environment:
       # KRaft 模式 (无需 ZooKeeper)
-      - KAFKA_CFG_NODE_ID=1
-      - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
-      - KAFKA_CFG_NUM_PARTITIONS=3
-      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=1
-      - KAFKA_CFG_LOG_RETENTION_HOURS=24
+      - KAFKA_NODE_ID=1
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:9094
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_NUM_PARTITIONS=3
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_LOG_RETENTION_HOURS=24
+      - KAFKA_CLUSTER_ID=traffic-cluster-001
+      - KAFKA_LOG_DIRS=/tmp/kafka-logs
     volumes:
       - kafka_data:/bitnami/kafka
     healthcheck:
-      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list",
+        ]
       interval: 10s
       timeout: 10s
       retries: 8
@@ -110,15 +117,18 @@ services:
       - KAFKA_BOOTSTRAP=kafka:9092
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - FLINK_HOST=flink-jobmanager
       - FLASK_HOST=0.0.0.0
       - FLASK_PORT=8088
       - DB_PATH=/app/data/traffic_data.db
+      - STARTUP_SIMULATION=false
     volumes:
       - app_data:/app/data
       - ./config:/app/config:ro
       - ./sql:/app/sql:ro
       - ./python:/app/python:ro
       - ./pseudo_distributed:/app/pseudo_distributed:ro
+      - ./init:/app/init:ro
     depends_on:
       kafka:
         condition: service_healthy
@@ -131,6 +141,34 @@ services:
       retries: 5
     networks:
       - traffic-net
+
+  # ==================== 数据模拟引擎 (默认不启动) ====================
+  simulator-kafka:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: traffic-simulator-kafka
+    environment:
+      - KAFKA_BOOTSTRAP=kafka:9092
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DB_PATH=/app/data/traffic_data.db
+    volumes:
+      - app_data:/app/data
+      - ./config:/app/config:ro
+      - ./sql:/app/sql:ro
+      - ./python:/app/python:ro
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - traffic-net
+    profiles:
+      - simulators
+    command: python /app/init/realtime_dataflow.py --duration 0
+    restart: unless-stopped
 
 volumes:
   kafka_data:

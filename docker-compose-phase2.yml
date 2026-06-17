@@ -25,6 +25,7 @@ volumes:
   flume-data:
   dolphinscheduler-data:
   superset-data:
+  superset-home:
 
 services:
 
@@ -232,13 +233,16 @@ services:
   # 6. Superset — 可视化看板
   # ==========================================================================
   superset:
-    image: apache/superset:3.1.0
+    image: apache/superset:3.1.3
     container_name: traffic-superset
     hostname: superset
     ports:
-      - "8088:8088"
+      - "8089:8088"
     environment:
       - SUPERSET_SECRET_KEY=traffic-superset-secret-key-2024
+      - SUPERSET_LOAD_EXAMPLES=0
+      - SUPERSET_CONFIG_PATH=/app/pythonpath/superset_config.py
+      - PYTHONPATH=/app/pythonpath
       - DATABASE_DB=superset
       - DATABASE_HOST=superset-db
       - DATABASE_PORT=5432
@@ -251,7 +255,8 @@ services:
       - REDIS_PORT=6379
       - REDIS_DB=0
     volumes:
-      - superset-data:/app/superset_home
+      - superset-home:/app/superset_home
+      - ./config/superset/superset_config.py:/app/pythonpath/superset_config.py:ro
       - ./docs/BI_DASHBOARDS.md:/app/superset_home/dashboards.md:ro
     command: >
       /bin/bash -c "
@@ -264,10 +269,17 @@ services:
         echo '🚀 启动 Superset...' &&
         superset run -h 0.0.0.0 -p 8088 --with-threads --reload --debugger
       "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8088/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
     networks:
       - traffic-prod-net
     depends_on:
-      - superset-db
+      superset-db:
+        condition: service_healthy
 
   superset-db:
     image: postgres:15-alpine

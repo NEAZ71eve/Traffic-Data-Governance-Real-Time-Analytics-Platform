@@ -36,18 +36,20 @@ receivers:
 
   - name: 'critical-alerts'
     webhook_configs:
-      - url: 'http://localhost:9999/dingtalk'
+      - url: 'http://alertmanager-adapter:5000/alertmanager/dingtalk'
         send_resolved: true
         max_alerts: 1
+      # 开发模式备选: 直接连 webhook 模拟器
+      # - url: 'http://localhost:9999/dingtalk'
 
   - name: 'major-alerts'
     webhook_configs:
-      - url: 'http://localhost:9999/email'
+      - url: 'http://alertmanager-adapter:5000/alertmanager/dingtalk'
         send_resolved: true
 
   - name: 'warning-alerts'
     webhook_configs:
-      - url: 'http://localhost:9999/email'
+      - url: 'http://alertmanager-adapter:5000/alertmanager/dingtalk'
         send_resolved: false
 
 # 抑制规则

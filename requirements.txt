@@ -3,7 +3,7 @@ flask==3.0.3
 gunicorn==22.0.0
 
 # Kafka
-kafka-python==2.0.2
+kafka-python-ng==2.3.0
 
 # Redis
 redis==5.0.8

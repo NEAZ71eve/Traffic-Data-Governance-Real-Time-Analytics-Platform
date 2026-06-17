@@ -47,7 +47,8 @@ def load_config():
             "channels": {
                 "dingtalk": {"enabled": True, "webhook_url": "http://localhost:9999/dingtalk"},
                 "email": {"enabled": True, "smtp_host": "localhost", "smtp_port": 25},
-                "sms": {"enabled": False}
+                "sms": {"enabled": False},
+                "phone": {"enabled": False}
             },
             "escalation_policy": {
                 "CRITICAL": {"channels": ["dingtalk", "email", "sms"], "retry_interval_minutes": 5, "max_retry": 3},
@@ -168,11 +169,25 @@ class DingTalkChannel(NotificationChannel):
 
     def send(self, alert_data):
         webhook_url = self.config.get("webhook_url", "")
+        signature_enabled = self.config.get("signature_enabled", False)
+        secret = self.config.get("signature_secret", "")
+
+        # HMAC-SHA256 签名
+        if signature_enabled and secret and "YOUR" not in secret:
+            try:
+                from python.dingtalk_signer import DingTalkSigner
+                signer = DingTalkSigner(secret)
+                webhook_url = signer.sign_url(webhook_url)
+            except ImportError:
+                pass
+
         if not webhook_url or "YOUR_TOKEN" in webhook_url:
             # 开发模式：打印到控制台
             print(f"\n{'='*60}")
             print(f"[DingTalk Webhook] 告警发送中...")
             print(f"  URL: {webhook_url}")
+            if signature_enabled and secret and "YOUR" not in secret:
+                print(f"  Signature: enabled")
             md = self._format_markdown(alert_data)
             print(md)
             print(f"{'='*60}\n")
@@ -248,6 +263,42 @@ class EmailChannel(NotificationChannel):
             return False, str(e)
 
 
+class SmsChannel(NotificationChannel):
+    """短信通知渠道 — 开发模式打印到控制台，生产需对接阿里云/腾讯云 SMS API"""
+
+    def __init__(self, config):
+        super().__init__("sms", config)
+
+    def send(self, alert_data):
+        provider = self.config.get("provider", "aliyun")
+        access_key = self.config.get("access_key", "")
+
+        if "YOUR" in access_key or not access_key:
+            # 开发模式
+            print(f"\n[SMS] Provider: {provider}")
+            print(f"  Alert: {alert_data.get('title', '')} (severity: {alert_data.get('severity', '')})")
+            return True, "printed to console (dev mode)"
+
+        # TODO: 对接真实 SMS API (阿里云 Dysmsapi / 腾讯云 SMS)
+        print(f"[SMS] 真实短信发送未实现 (provider={provider})")
+        return False, "not implemented"
+
+
+class PhoneChannel(NotificationChannel):
+    """电话通知渠道 — 开发模式打印到控制台，生产需对接 Twilio/阿里云语音"""
+
+    def __init__(self, config):
+        super().__init__("phone", config)
+
+    def send(self, alert_data):
+        provider = self.config.get("provider", "twilio")
+
+        # 开发模式
+        print(f"\n[Phone] Provider: {provider}")
+        print(f"  Alert: {alert_data.get('title', '')} (severity: {alert_data.get('severity', '')})")
+        return True, "printed to console (dev mode)"
+
+
 # ============================================================================
 # 告警分发引擎
 # ============================================================================
@@ -264,7 +315,9 @@ class AlertDispatcher:
         channels_config = self.alert_config.get("channels", {})
         self.channels = {
             "dingtalk": DingTalkChannel(channels_config.get("dingtalk", {})),
-            "email": EmailChannel(channels_config.get("email", {}))
+            "email": EmailChannel(channels_config.get("email", {})),
+            "sms": SmsChannel(channels_config.get("sms", {})),
+            "phone": PhoneChannel(channels_config.get("phone", {})),
         }
 
         # 告警升级策略

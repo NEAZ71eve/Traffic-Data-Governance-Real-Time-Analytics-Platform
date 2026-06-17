@@ -60,6 +60,70 @@ start_time = time.time()
 stop_event = threading.Event()
 
 # ============================================================
+# Kafka 连接探测 — 如果有真实 Kafka 则读取消息计数
+# ============================================================
+KAFKA_ENABLED = False
+KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP", "localhost:9092")
+
+try:
+    from kafka import KafkaConsumer
+    test_consumer = KafkaConsumer(bootstrap_servers=KAFKA_BOOTSTRAP, consumer_timeout_ms=2000)
+    test_consumer.close()
+    KAFKA_ENABLED = True
+except Exception:
+    pass
+
+
+def kafka_consumer_thread():
+    """从真实 Kafka Topic 读取消息，更新 KAFKA_TOPICS 状态"""
+    if not KAFKA_ENABLED:
+        return
+    try:
+        from kafka import KafkaConsumer, TopicPartition
+        consumer = KafkaConsumer(
+            bootstrap_servers=KAFKA_BOOTSTRAP,
+            value_deserializer=lambda v: json.loads(v.decode("utf-8")),
+            auto_offset_reset="latest",
+            group_id="realtime-pipeline-viz",
+            consumer_timeout_ms=3000,
+        )
+        topic_names = list(KAFKA_TOPICS.keys())
+        # 获取每个 topic 的 partition 分配
+        partitions = []
+        for topic in topic_names:
+            try:
+                pts = consumer.partitions_for_topic(topic)
+                if pts:
+                    for p in pts:
+                        partitions.append(TopicPartition(topic, p))
+            except Exception:
+                pass
+        if partitions:
+            consumer.assign(partitions)
+            # 从最新开始 (不回溯历史)
+            consumer.seek_to_end()
+
+        while not stop_event.is_set():
+            batch = consumer.poll(timeout_ms=1000, max_records=100)
+            if batch:
+                with STATE_LOCK:
+                    for tp, msgs in batch.items():
+                        topic = tp.topic
+                        if topic in KAFKA_TOPICS:
+                            KAFKA_TOPICS[topic]["total_msgs"] += len(msgs)
+                            KAFKA_TOPICS[topic]["msgs_per_sec"] = len(msgs)
+            else:
+                # 无消息时清零速率
+                with STATE_LOCK:
+                    for t in topic_names:
+                        if KAFKA_TOPICS[t]["msgs_per_sec"] == 0:
+                            pass  # 保持上次值
+        consumer.close()
+    except Exception as e:
+        pass  # Kafka 不可用时静默跳过
+
+
+# ============================================================
 # Simulator Threads
 # ============================================================
 
@@ -622,6 +686,10 @@ if __name__ == "__main__":
         threading.Thread(target=hive_etl_simulator, daemon=True, name="hive-sim"),
         threading.Thread(target=data_generator, daemon=True, name="data-gen"),
     ]
+    # 如果检测到真实 Kafka，启动消费者线程
+    if KAFKA_ENABLED:
+        threads.append(threading.Thread(target=kafka_consumer_thread, daemon=True, name="kafka-consumer"))
+        print(f"  检测到 Kafka ({KAFKA_BOOTSTRAP}), 实时消费模式")
     for t in threads:
         t.start()
     print(f"  已启动 {len(threads)} 个模拟器线程")

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from functools import lru_cache
 
 app = Flask(__name__)
-DB = os.path.join(os.path.dirname(__file__), "traffic_data.db")
+DB = os.environ.get("DB_PATH", os.path.join(os.path.dirname(__file__), "traffic_data.db"))
 start_time = time.time()
 APP_VERSION = "2.1.0"
 
@@ -60,10 +60,16 @@ def check_http(url, timeout=3):
 
 def detect_services():
     """自动检测各服务状态"""
+    # Docker 容器间使用服务名，本地开发使用 localhost
+    kafka_host = os.environ.get("KAFKA_BOOTSTRAP", "localhost:9092").split(":")[0]
+    redis_host = os.environ.get("REDIS_HOST", "localhost")
+    redis_port = int(os.environ.get("REDIS_PORT", "6379"))
+    flink_host = os.environ.get("FLINK_HOST", "localhost")
+
     services = {
-        "kafka": {"name": "Apache Kafka", "host": "localhost", "port": 9092, "status": "unknown"},
-        "flink_jm": {"name": "Flink JobManager", "host": "localhost", "port": 8081, "status": "unknown"},
-        "redis": {"name": "Redis", "host": "localhost", "port": 6379, "status": "unknown"},
+        "kafka": {"name": "Apache Kafka", "host": kafka_host, "port": 9092, "status": "unknown"},
+        "flink_jm": {"name": "Flink JobManager", "host": flink_host, "port": 8081, "status": "unknown"},
+        "redis": {"name": "Redis", "host": redis_host, "port": redis_port, "status": "unknown"},
         "hdfs": {"name": "HDFS NameNode", "host": "localhost", "port": 9870, "status": "unknown"},
         "mysql": {"name": "MySQL", "host": "localhost", "port": 3306, "status": "unknown"},
     }
